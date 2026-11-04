@@ -66,6 +66,16 @@ export async function run() {
     // Largest window first, so screenshots are comparable between runs.
     let actors = roundedActors().sort((a, b) => b.width - a.width);
     check(actors.length >= 2, 'Expected rounded effects on two test windows');
+
+    // Shadows are pre-rendered images, no offscreen effect per shadow.
+    for (const actor of actors) {
+        const {shadow} = states.get(actor);
+        check(
+            shadow.get_effects().length === 0 &&
+                shadow.firstChild.get_effects().length === 0,
+            'Shadow actors must not have effects',
+        );
+    }
     if (GLib.getenv('RWC_TEST_BACKEND') === 'x11') {
         check(
             actors.every(
