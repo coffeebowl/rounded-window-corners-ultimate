@@ -32,10 +32,9 @@ pre-built archive from GitHub Actions.
 ### From source code
 
 1. Install the dependencies:
-    - Node.js
-    - npm
+    - make
     - gettext
-    - [just](https://just.systems)
+    - `gnome-extensions` (part of GNOME Shell)
 
     Those packages are available in the repositories of most linux distros, so
     you can simply install them with your package manager.
@@ -45,7 +44,7 @@ pre-built archive from GitHub Actions.
     ```bash
     git clone https://github.com/flexagoon/rounded-window-corners
     cd rounded-window-corners
-    just install
+    make install
     ```
 
 After this, the extension will be installed to
@@ -74,15 +73,14 @@ You can also manually edit .po files and submit a PR if you know how to do that.
 
 ## Development
 
-Here are the avaliable `just` commands (run `just --list` to see this message):
+The extension is plain JavaScript (GJS ES modules) in `extension/`, there is
+no build step. Available `make` targets:
 
 ```bash
-Available recipes:
-    build   # Compile the extension and all resources
-    clean   # Delete the build directory
-    install # Build and install the extension from source
-    pack    # Build and pack the extension
-    pot     # Update and compile the translation files
+make pack     # Pack the extension into a zip file
+make install  # Pack and install the extension
+make pot      # Update the translation template and .po files
+make clean    # Delete the zip file
 ```
 
 ## Credits

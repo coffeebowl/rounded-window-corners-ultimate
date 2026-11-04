@@ -1,0 +1,61 @@
+/** @file Provides types used throughout the codebase, mostly for storing settings. */
+
+/**
+ * Bounds of rounded corners.
+ *
+ * @typedef {object} Bounds
+ * @property {number} x1
+ * @property {number} y1
+ * @property {number} x2
+ * @property {number} y2
+ */
+
+/**
+ * Settings for corner rounding.
+ *
+ * @typedef {object} RoundedCornerSettings
+ * @property {{maximized: boolean, fullscreen: boolean}} keepRoundedCorners
+ * @property {number} borderRadius
+ * @property {number} smoothing
+ * @property {{left: number, right: number, top: number, bottom: number}} padding
+ * @property {[number, number, number, number]} borderColor
+ * @property {boolean} enabled
+ */
+
+/**
+ * Rounded corner settings exceptions for specific windows, keyed by wmClass.
+ *
+ * @typedef {Record<string, RoundedCornerSettings>} CustomRoundedCornerSettings
+ */
+
+/**
+ * Window shadow properties.
+ *
+ * @typedef {object} BoxShadow
+ * @property {number} opacity
+ * @property {number} spreadRadius
+ * @property {number} blurOffset
+ * @property {number} verticalOffset
+ * @property {number} horizontalOffset
+ */
+
+/**
+ * A window actor with rounded corners.
+ *
+ * Window actors carry extra custom properties: `rwcCustomData` holds
+ * `{shadow: St.Bin, unminimizedTimeoutId: number,
+ * propertyBindings: GObject.Binding[]}` and `rwcLock` an optional
+ * `Promise<void>`.
+ *
+ * @typedef {import('gi://Meta').default.WindowActor} RoundedWindowActor
+ */
+
+/**
+ * Check if a WindowActor has a metaWindow.
+ *
+ * @param {import('gi://Meta').default.WindowActor} actor - The actor to check.
+ * @returns {boolean} Whether the actor has a `metaWindow`.
+ */
+export function hasMetaWindow(actor) {
+    return actor.metaWindow !== null;
+}
