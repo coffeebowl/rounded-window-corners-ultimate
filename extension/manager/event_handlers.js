@@ -50,7 +50,8 @@ export function flush(state, bits) {
 
     // The surface actor of XWayland clients and the wm class can arrive
     // after the window. Their signals queue another update.
-    if (!actor.firstChild || win.wmClass === null || !state.texture) return;
+    const target = unwrapActor(actor);
+    if (!target || win.wmClass === null || !state.texture) return;
 
     if (state.app === null && needsAppType()) startAppDetection(state);
 
@@ -59,7 +60,6 @@ export function flush(state, bits) {
     // change the rules, and so on.
     if (bits & ~FOCUS) {
         const wanted = shouldEnableEffect(win, state.app);
-        const target = unwrapActor(actor);
 
         // The X11 surface actor can be replaced; move the effect along.
         if (state.effect && state.effectActor !== target) removeEffect(state);
@@ -74,7 +74,7 @@ export function flush(state, bits) {
             bufferWidth > 0 &&
             bufferHeight > 0;
 
-        if (wanted && !state.effect && target && hasSize)
+        if (wanted && !state.effect && hasSize)
             createEffect(state, target);
         else if (!wanted && state.effect) removeEffect(state);
 
@@ -426,7 +426,7 @@ function refreshShadow(state) {
  * @param {WindowState} state - The window.
  */
 function updateEffect(state) {
-    const {actor, win, effect, shadow} = state;
+    const {win, effect, effectActor, shadow} = state;
 
     // A paused window keeps its uniforms up to date, so it looks right as
     // soon as it is visible again.
@@ -434,7 +434,10 @@ function updateEffect(state) {
 
     const cfg = getRoundedCornersCfg(win);
     const windowContentOffset = computeWindowContentsOffset(win);
-    effect.updateUniforms(cfg, computeBounds(actor, windowContentOffset));
+    effect.updateUniforms(
+        cfg,
+        computeBounds(win, effectActor, windowContentOffset),
+    );
 
     const offsets = computeShadowActorOffset(windowContentOffset);
     shadow.get_constraints().forEach((constraint, i) => {

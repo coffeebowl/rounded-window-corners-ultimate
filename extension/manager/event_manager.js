@@ -189,8 +189,10 @@ function track(actor) {
             queueUpdate(state, GEOMETRY);
             queueCoverage();
         },
-        // XWayland surfaces can arrive after the window.
-        'notify::first-child',
+        // XWayland surfaces can arrive after the window. Another extension
+        // may already have put an actor in front, so the first child does
+        // not have to change.
+        'child-added',
         () => queueUpdate(state, STATE),
         'notify::visible',
         () => {

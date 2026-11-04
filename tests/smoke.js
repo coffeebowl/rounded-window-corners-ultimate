@@ -7,6 +7,7 @@ import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Meta from 'gi://Meta';
 import Shell from 'gi://Shell';
+import St from 'gi://St';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
@@ -163,12 +164,27 @@ export async function run() {
     await Scripting.sleep(400);
 
     extension.disable();
-    extension.enable();
+
+    // Like Blur my Shell, put a widget in front of the window contents
+    // before the extension sees the window. The effect has to go on the
+    // contents, so the widget stays outside the offscreen framebuffer.
     await Scripting.createTestWindow({width: 500, height: 320});
     await Scripting.waitTestWindows();
+    for (const actor of global.get_window_actors())
+        actor.insert_child_at_index(new St.Widget({name: 'RWC blur'}), 0);
+    extension.enable();
     await Scripting.sleep(600);
     actors = roundedActors();
     check(actors.length > 0, 'Re-enable did not create effects');
+    for (const actor of actors) {
+        const {effectActor} = states.get(actor);
+        check(
+            effectActor.get_parent() === actor &&
+                !(effectActor instanceof St.Widget) &&
+                actor.get_effects().length === 0,
+            'The effect has to be on the window contents',
+        );
+    }
 
     extension.disable();
     check(roundedActors().length === 0, 'Disable leaked window effects');

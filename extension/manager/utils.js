@@ -3,6 +3,7 @@
 import Cogl from 'gi://Cogl';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
+import GObject from 'gi://GObject';
 import Meta from 'gi://Meta';
 
 import {APP_SHADOWS, SHADOW_PADDING} from '../utils/constants.js';
@@ -14,16 +15,33 @@ import {getPref} from '../utils/settings.js';
 /** @typedef {import('../utils/types.js').RoundedWindowActor} RoundedWindowActor */
 
 /**
- * Get the actor that rounded corners should be applied to.
- * In Wayland, the effect is applied to WindowActor, but in X11, it is applied
- * to WindowActor.first_child.
+ * Get the actor that rounded corners should be applied to: the child of the
+ * window actor that holds the window contents. For Wayland clients that is
+ * the surface container with the main surface and its subsurfaces, for
+ * XWayland clients the surface actor.
+ *
+ * The effect is an offscreen effect, so everything inside its actor is
+ * painted into its own framebuffer first. Other extensions put actors into
+ * the window actor, for example Blur my Shell a blur actor below the
+ * contents. On the window actor itself, the effect would capture that blur
+ * actor, which then has nothing behind it to blur.
+ *
+ * The surface types are not introspectable, so they are matched by their
+ * type name. This also skips the black background that Mutter puts behind
+ * fullscreen windows smaller than the monitor.
+ *
+ * Based on kem-a/rounded-window-corners.
  *
  * @param {RoundedWindowActor} actor - The window actor to unwrap.
- * @returns {import('gi://Clutter').default.Actor | null} The correct actor that the effect should be applied to.
+ * @returns {import('gi://Clutter').default.Actor | null} The actor to apply
+ *   the effect to, or null if the window contents do not exist yet.
  */
 export function unwrapActor(actor) {
-    const type = actor.metaWindow.get_client_type();
-    return type === Meta.WindowClientType.X11 ? actor.get_first_child() : actor;
+    for (const child of actor.get_children()) {
+        if (GObject.type_name(child.constructor.$gtype).startsWith('MetaSurface'))
+            return child;
+    }
+    return null;
 }
 
 /**
@@ -49,26 +67,29 @@ export function getRoundedCornersCfg(win) {
 }
 
 /**
- * Compute outer bounds for rounded corners of a window.
+ * Compute outer bounds for rounded corners of a window, in the coordinates
+ * of the actor that has the effect.
  *
- * @param {RoundedWindowActor} actor - The window actor to compute the bounds for.
- * @param {number[]} offsets - The content offsets `[x, y, width, height]` of the window actor.
+ * @param {import('gi://Meta').default.Window} win - The window.
+ * @param {import('gi://Clutter').default.Actor} target - The actor with the
+ *   effect, see {@link unwrapActor}. Its size is the buffer size.
+ * @param {number[]} offsets - The content offsets `[x, y, width, height]` of the window.
  * @returns {import('../utils/types.js').Bounds}
  */
-export function computeBounds(actor, [x, y, width, height]) {
+export function computeBounds(win, target, [x, y, width, height]) {
     const bounds = {
         x1: x + 1,
         y1: y + 1,
-        x2: x + actor.width + width,
-        y2: y + actor.height + height,
+        x2: x + target.width + width,
+        y2: y + target.height + height,
     };
 
     // Kitty draws its window decoration by itself, so we need to manually
     // clip its shadow and recompute the outer bounds for it.
     if (
         getPref('tweak-kitty-terminal') &&
-        actor.metaWindow.get_client_type() === Meta.WindowClientType.WAYLAND &&
-        actor.metaWindow.wmClass === 'kitty'
+        win.get_client_type() === Meta.WindowClientType.WAYLAND &&
+        win.wmClass === 'kitty'
     ) {
         const [x1, y1, x2, y2] = APP_SHADOWS.kitty;
         bounds.x1 += x1;

@@ -88,13 +88,16 @@ function measureTexelScale(paintContext) {
  */
 export function updateTextureFilters(effect, paintContext) {
     const actor = effect.actor;
+    // The effect sits on the surface inside the window actor, but
+    // animations scale the window actor.
+    const windowActor = actor.get_parent();
 
     // Fast path: painted in place, at its own size. Clutter's choice is
     // right then, and most paints are like this.
     if (
         !actor.is_in_clone_paint() &&
-        actor.scaleX === 1 &&
-        actor.scaleY === 1
+        windowActor?.scaleX === 1 &&
+        windowActor.scaleY === 1
     )
         return;
 
