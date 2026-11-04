@@ -62,6 +62,8 @@ targets are all you need:
 ```bash
 make pack     # Pack the extension into a zip file
 make install  # Pack and install the extension
+make test     # Run the unit tests (gjs -m)
+make smoke    # Run the extension in a private headless GNOME Shell 51
 make pot      # Update the translation template and .po files
 make clean    # Delete the zip file
 ```

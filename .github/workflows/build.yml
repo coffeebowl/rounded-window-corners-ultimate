@@ -16,13 +16,16 @@ jobs:
     container: fedora:latest
     steps:
       - name: Install build dependencies
-        run: dnf install -y make gettext /usr/bin/gnome-extensions
+        run: dnf install -y make gettext gjs /usr/bin/gnome-extensions
 
       - name: Checkout the repository
         uses: actions/checkout@v4
 
       - name: Build the extension
         run: make pack
+
+      - name: Run the unit tests
+        run: make test
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4

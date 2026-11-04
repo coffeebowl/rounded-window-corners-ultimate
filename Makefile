@@ -11,7 +11,7 @@ EXTRA_SOURCES = \
 	window_picker \
 	stylesheet-prefs.css
 
-.PHONY: pack install pot clean
+.PHONY: pack install test smoke pot clean
 
 pack:
 	gnome-extensions pack $(SRCDIR) \
@@ -22,6 +22,16 @@ pack:
 
 install: pack
 	gnome-extensions install --force $(ZIP)
+
+test:
+	@for t in tests/*.test.js; do \
+		[ -e "$$t" ] || continue; \
+		gjs -m "$$t" || exit 1; \
+	done
+
+smoke:
+	tests/run-smoke.sh wayland
+	tests/run-smoke.sh x11
 
 pot:
 	xgettext --from-code=UTF-8 \
