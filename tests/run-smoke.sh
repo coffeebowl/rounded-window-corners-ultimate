@@ -3,6 +3,9 @@
 #
 # Usage: tests/run-smoke.sh [wayland|x11] [screenshot.png]
 #
+# RWC_SMOKE_SCRIPT selects another automation script, for example
+# tests/coverage-smoke.js. RWC_SMOKE_LOG keeps the session log.
+#
 # The session uses its own XDG directories and an in-memory GSettings
 # backend, so it never touches the settings or extensions of the
 # running desktop.
@@ -49,7 +52,7 @@ log="$scratch/session.log"
 trap '[[ -n "${RWC_SMOKE_LOG:-}" && -f "$log" ]] && cp -- "$log" "$RWC_SMOKE_LOG"; rm -rf -- "$scratch"' EXIT
 if ! timeout -k 3s 60s dbus-run-session -- gnome-shell --headless \
     --force-animations "${compositor_args[@]}" --virtual-monitor 1280x720 \
-    --automation-script "$repo_root/tests/smoke.js" > "$log" 2>&1; then
+    --automation-script "${RWC_SMOKE_SCRIPT:-$repo_root/tests/smoke.js}" > "$log" 2>&1; then
     cat "$log"
     exit 1
 fi
@@ -61,4 +64,6 @@ if ! grep -q 'RWC_SMOKE_PASS' "$log" || grep -Eq \
     exit 1
 fi
 
-printf 'GNOME Shell 51 %s smoke test passed.\n' "$backend"
+grep '^RWC_SKIP' "$log" || true
+printf 'GNOME Shell 51 %s %s passed.\n' "$backend" \
+    "$(basename "${RWC_SMOKE_SCRIPT:-smoke.js}" .js)"
