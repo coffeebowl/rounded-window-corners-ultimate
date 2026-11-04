@@ -6,7 +6,7 @@ import Meta from 'gi://Meta';
 
 import {boxShadowCss} from '../utils/box_shadow.js';
 import {APP_SHADOWS, SHADOW_PADDING} from '../utils/constants.js';
-import {readFile} from '../utils/file.js';
+import {findInFile} from '../utils/file.js';
 import {logDebug, logError} from '../utils/log.js';
 import {getPref} from '../utils/settings.js';
 
@@ -269,23 +269,85 @@ export function shouldEnableEffect(win, app) {
 }
 
 /**
- * Find out what an app is built with by reading /proc/{pid}/maps once.
+ * Window classes of games: Steam/Proton, Wine (Lutris, Heroic, ...) and
+ * gamescope. Games are never libadwaita or Chromium apps, so their
+ * /proc/<pid>/maps, which can be megabytes for Wine, is not read at all.
+ */
+const GAME_CLASSES = [/^steam_app_\d+$/, /\.exe$/i, /^gamescope$/i];
+
+/**
+ * Check whether a window belongs to a game, judging by its window class.
+ *
+ * @param {import('gi://Meta').default.Window} win - The window to check.
+ * @returns {boolean}
+ */
+export function isGame(win) {
+    const wmClass = win.wmClass ?? '';
+    return GAME_CLASSES.some(pattern => pattern.test(wmClass));
+}
+
+/** Markers in /proc/<pid>/maps and what they mean. */
+const MAPS_MARKERS = new Map([
+    ['libhandy-1.so', {type: 'LibHandy', chromium: false}],
+    ['libadwaita-1.so', {type: 'LibAdwaita', chromium: false}],
+    ['/dev/shm/.org.chromium.Chromium', {type: 'Other', chromium: true}],
+]);
+
+/** @type {AppInfo} */
+const OTHER_APP = Object.freeze({type: 'Other', chromium: false});
+
+/**
+ * Detection results per process, shared by all windows of the process.
+ *
+ * @type {Map<number, {promise: Promise<AppInfo>, users: number}>}
+ */
+const appsByPid = new Map();
+
+/**
+ * Find out what an app is built with. Windows of the same process share one
+ * read of /proc/<pid>/maps, which stops at the first marker. Call
+ * {@link releaseApp} with the same PID when the window goes away.
  *
  * Errors for processes that cannot be read (other users, sandboxes) or that
  * already exited are expected and only logged in debug mode.
  *
  * @param {import('gi://Meta').default.Window} win - The window to check.
+ * @param {number} pid - Its process ID, greater than 0.
  * @returns {Promise<AppInfo>}
  */
-export async function detectApp(win) {
-    /** @type {AppInfo} */
-    const fallback = {type: 'Other', chromium: false};
-    const pid = win.get_pid();
-    if (pid <= 0) return fallback;
+export function detectApp(win, pid) {
+    let entry = appsByPid.get(pid);
+    if (!entry) {
+        entry = {promise: readAppInfo(win, pid), users: 0};
+        appsByPid.set(pid, entry);
+    }
+    entry.users++;
+    return entry.promise;
+}
 
-    let contents;
+/**
+ * Drop a window's claim on the detection result of its process. The result
+ * is forgotten when the last window of the process is gone, since the PID
+ * can be reused.
+ *
+ * @param {number} pid - The PID passed to {@link detectApp}.
+ */
+export function releaseApp(pid) {
+    const entry = appsByPid.get(pid);
+    if (entry && --entry.users <= 0) appsByPid.delete(pid);
+}
+
+/**
+ * Read /proc/<pid>/maps once and look for the toolkit markers.
+ *
+ * @param {import('gi://Meta').default.Window} win - A window of the process, for logging.
+ * @param {number} pid - The process ID.
+ * @returns {Promise<AppInfo>}
+ */
+async function readAppInfo(win, pid) {
+    let marker;
     try {
-        contents = await readFile(`/proc/${pid}/maps`);
+        marker = await findInFile(`/proc/${pid}/maps`, [...MAPS_MARKERS.keys()]);
     } catch (e) {
         if (
             e instanceof GLib.Error &&
@@ -296,15 +358,10 @@ export async function detectApp(win) {
         } else {
             logError(e);
         }
-        return fallback;
+        return OTHER_APP;
     }
 
-    /** @type {AppInfo['type']} */
-    let type = 'Other';
-    if (contents.includes('libhandy-1.so')) type = 'LibHandy';
-    else if (contents.includes('libadwaita-1.so')) type = 'LibAdwaita';
-    const chromium = contents.includes('/dev/shm/.org.chromium.Chromium');
-
-    logDebug(() => `${win.wmClass}: ${type}, chromium: ${chromium}`);
-    return {type, chromium};
+    const app = (marker && MAPS_MARKERS.get(marker)) || OTHER_APP;
+    logDebug(() => `${win.wmClass}: ${app.type}, chromium: ${app.chromium}`);
+    return app;
 }

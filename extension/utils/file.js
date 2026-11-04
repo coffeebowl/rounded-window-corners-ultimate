@@ -3,6 +3,10 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
+Gio._promisify(Gio.File.prototype, 'read_async');
+Gio._promisify(Gio.InputStream.prototype, 'read_bytes_async');
+Gio._promisify(Gio.InputStream.prototype, 'close_async');
+
 /**
  * Read file contents as a string.
  *
@@ -16,6 +20,55 @@ export async function readFile(path) {
 
     const decoder = new TextDecoder('utf-8');
     return decoder.decode(contents);
+}
+
+/**
+ * Search a file for the first of several markers, reading it in chunks and
+ * stopping at the first match. Cheaper than reading a large file as a whole
+ * when the marker comes early.
+ *
+ * @param {string} path - The file to search.
+ * @param {string[]} markers - Plain-text markers to look for.
+ * @param {number} [chunkSize] - Bytes to read at a time.
+ * @returns {Promise<string | null>} The first marker found, or null.
+ */
+export async function findInFile(path, markers, chunkSize = 64 * 1024) {
+    const stream = await Gio.File.new_for_path(path).read_async(
+        GLib.PRIORITY_DEFAULT,
+        null,
+    );
+    const decoder = new TextDecoder('utf-8');
+    // Keep the end of the previous chunk, a marker can span two chunks.
+    const overlap = Math.max(...markers.map(m => m.length)) - 1;
+    let tail = '';
+
+    try {
+        for (;;) {
+            const bytes = await stream.read_bytes_async(
+                chunkSize,
+                GLib.PRIORITY_DEFAULT,
+                null,
+            );
+            if (bytes.get_size() === 0) return null;
+
+            // The markers are ASCII, so a multi-byte character split
+            // between two chunks cannot hide one.
+            const text = tail + decoder.decode(bytes.toArray());
+            let first = null;
+            let firstIndex = Infinity;
+            for (const marker of markers) {
+                const index = text.indexOf(marker);
+                if (index >= 0 && index < firstIndex) {
+                    first = marker;
+                    firstIndex = index;
+                }
+            }
+            if (first !== null) return first;
+            tail = overlap > 0 ? text.slice(-overlap) : '';
+        }
+    } finally {
+        await stream.close_async(GLib.PRIORITY_DEFAULT, null);
+    }
 }
 
 /**

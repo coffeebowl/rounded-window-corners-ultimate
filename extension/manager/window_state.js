@@ -41,6 +41,7 @@ export const SETTINGS = 8;
  * @property {{type: 'LibHandy' | 'LibAdwaita' | 'Other', chromium: boolean} | null} app -
  *   What the app is built with, once known.
  * @property {boolean} detecting - Whether the app detection is running.
+ * @property {number} pid - Process ID used for the app detection, or 0.
  * @property {number} unminimizeTimeoutId - Pending Chromium refresh.
  * @property {number} dirty - Bitmask of pending changes.
  * @property {number} laterId - ID of the queued update, or 0.
@@ -113,6 +114,7 @@ export function createState(actor, win) {
         emitters: new Set(),
         app: null,
         detecting: false,
+        pid: 0,
         unminimizeTimeoutId: 0,
         dirty: 0,
         laterId: 0,

@@ -21,6 +21,9 @@ import {
     computeWindowContentsOffset,
     detectApp,
     getRoundedCornersCfg,
+    isGame,
+    needsAppType,
+    releaseApp,
     shouldEnableEffect,
     unwrapActor,
     updateShadowActorStyle,
@@ -48,7 +51,7 @@ export function flush(state, bits) {
     syncTexture(state);
     if (!state.texture) return;
 
-    if (state.app === null) startAppDetection(state);
+    if (state.app === null && needsAppType()) startAppDetection(state);
 
     // Everything except a focus change can decide whether the window has
     // the effect: maximizing changes the size, fullscreen and settings
@@ -87,6 +90,8 @@ export function flush(state, bits) {
  */
 export function teardown(state) {
     if (state.effect) removeEffect(state);
+    if (state.pid) releaseApp(state.pid);
+    state.pid = 0;
     for (const emitter of state.emitters) emitter.disconnectObject(state);
     state.emitters.clear();
     state.texture = null;
@@ -150,19 +155,32 @@ export function onUnminimize(state) {
     // cut off a part of the window.
     //
     // See https://github.com/flexagoon/rounded-window-corners/issues/124
-    if (state.app?.chromium && state.effect) {
-        if (state.unminimizeTimeoutId)
-            GLib.source_remove(state.unminimizeTimeoutId);
-        state.unminimizeTimeoutId = GLib.timeout_add(
-            GLib.PRIORITY_DEFAULT,
-            250,
-            () => {
-                state.unminimizeTimeoutId = 0;
-                queueUpdate(state, GEOMETRY);
-                return GLib.SOURCE_REMOVE;
-            },
-        );
-    }
+    //
+    // Without skip settings the app may not be known yet; then the refresh
+    // follows once it is.
+    if (state.app) refreshChromiumLater(state);
+    else startAppDetection(state, () => refreshChromiumLater(state));
+}
+
+/**
+ * Refresh a Chromium window 250 ms after it was unminimized.
+ *
+ * @param {WindowState} state - The window.
+ */
+function refreshChromiumLater(state) {
+    if (!(state.app?.chromium && state.effect)) return;
+
+    if (state.unminimizeTimeoutId)
+        GLib.source_remove(state.unminimizeTimeoutId);
+    state.unminimizeTimeoutId = GLib.timeout_add(
+        GLib.PRIORITY_DEFAULT,
+        250,
+        () => {
+            state.unminimizeTimeoutId = 0;
+            queueUpdate(state, GEOMETRY);
+            return GLib.SOURCE_REMOVE;
+        },
+    );
 }
 
 /** Keep every shadow actor directly below its window actor. */
@@ -201,16 +219,34 @@ function syncTexture(state) {
 
 /**
  * Find out once whether the app uses libadwaita, libhandy or Chromium, and
- * update the window when the answer arrives.
+ * update the window when the answer arrives. Games are known from their
+ * window class right away.
  *
  * @param {WindowState} state - The window.
+ * @param {() => void} [then] - Runs after the result arrived.
  */
-function startAppDetection(state) {
+function startAppDetection(state, then) {
+    if (state.app) {
+        then?.();
+        return;
+    }
     if (state.detecting) return;
-    state.detecting = true;
-    whenAlive(state, detectApp(state.win), app => {
-        state.app = app;
+
+    const pid = state.win.get_pid();
+    if (isGame(state.win) || pid <= 0) {
+        state.app = {type: 'Other', chromium: false};
         queueUpdate(state, STATE);
+        then?.();
+        return;
+    }
+
+    state.detecting = true;
+    state.pid = pid;
+    whenAlive(state, detectApp(state.win, pid), app => {
+        state.app = app;
+        state.detecting = false;
+        queueUpdate(state, STATE);
+        then?.();
     });
 }
 
