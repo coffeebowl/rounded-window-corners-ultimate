@@ -143,26 +143,15 @@ export function computeShadowActorOffset([
  *
  * @param {import('gi://Meta').default.Window} win - The window to update the style for.
  * @param {import('gi://St').default.Bin} actor - The shadow actor to update the style for.
- * @param {number} borderRadius - The border radius of the shadow actor.
+ * @param {import('../utils/types.js').RoundedCornerSettings} cfg - The rounded corner settings of the window.
  * @param {import('../utils/types.js').BoxShadow} shadow - The shadow settings for the window.
- * @param {import('../utils/types.js').RoundedCornerSettings['padding']} padding - The padding of the shadow actor.
  */
-export function updateShadowActorStyle(
-    win,
-    actor,
-    borderRadius,
-    shadow,
-    padding,
-) {
-    const {left, right, top, bottom} = padding;
+export function updateShadowActorStyle(win, actor, cfg, shadow) {
+    const {left, right, top, bottom} = cfg.padding;
 
-    // Increase border_radius when smoothing is on.
-    // Read global settings once to avoid repeated GSettings deserializations.
-    let adjustedBorderRadius = borderRadius;
-    const globalCfg = getPref('global-rounded-corner-settings');
-    if (globalCfg !== null) {
-        adjustedBorderRadius *= 1.0 + globalCfg.smoothing;
-    }
+    // Increase the border radius when smoothing is on, using the window's
+    // own settings so the shadow matches custom corners.
+    const adjustedBorderRadius = cfg.borderRadius * (1.0 + cfg.smoothing);
 
     actor.style = `padding: ${SHADOW_PADDING}px;`;
 

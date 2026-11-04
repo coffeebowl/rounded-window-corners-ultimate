@@ -281,9 +281,9 @@ function refreshShadow(actor) {
         ? getPref('focused-shadow')
         : getPref('unfocused-shadow');
 
-    const {borderRadius, padding} = getRoundedCornersCfg(win);
+    const cfg = getRoundedCornersCfg(win);
 
-    updateShadowActorStyle(win, shadow, borderRadius, shadowSettings, padding);
+    updateShadowActorStyle(win, shadow, cfg, shadowSettings);
 }
 
 /**
