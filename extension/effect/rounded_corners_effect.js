@@ -1,8 +1,8 @@
 /** @file Binds the actual corner rounding shader to the windows. */
 
+import Clutter from 'gi://Clutter';
 import Cogl from 'gi://Cogl';
 import GObject from 'gi://GObject';
-import Shell from 'gi://Shell';
 
 import {readShader} from '../utils/file.js';
 import {getPref} from '../utils/settings.js';
@@ -12,43 +12,28 @@ const [declarations, code] = await readShader(
     'shader/rounded_corners.frag',
 );
 
-/** Locations of the shader uniforms, filled in by the effect constructor. */
-class Uniforms {
-    bounds = 0;
-    clipRadius = 0;
-    borderWidth = 0;
-    borderColor = 0;
-    borderedAreaBounds = 0;
-    borderedAreaClipRadius = 0;
-    exponent = 0;
-    pixelStep = 0;
-}
-
 export const RoundedCornersEffect = GObject.registerClass(
-    {},
-    class Effect extends Shell.GLSLEffect {
+    {GTypeName: 'RwcUltimateRoundedCornersEffect'},
+    class Effect extends Clutter.ShaderEffect {
         /**
-         * To store a uniform value, we need to know its location in the shader,
-         * which is done by calling `this.get_uniform_location()`. This is
-         * expensive, so we cache the location of uniforms when the shader is
-         * created.
+         * Last values sent to the shader, by uniform name. Clutter resolves
+         * uniforms by name on every call, so unchanged values are skipped.
+         *
+         * @type {Map<string, number[]>}
          */
-        static uniforms = new Uniforms();
+        #lastUniforms = new Map();
 
-        constructor() {
-            super();
-
-            for (const k in Effect.uniforms) {
-                Effect.uniforms[k] = this.get_uniform_location(k);
-            }
-        }
-
-        vfunc_build_pipeline() {
-            this.add_glsl_snippet(
+        /**
+         * The snippet is created once per class and shared by all instances,
+         * so all windows use the same shader program.
+         *
+         * @returns {Cogl.Snippet}
+         */
+        vfunc_get_static_snippet() {
+            return Cogl.Snippet.new(
                 Cogl.SnippetHook.FRAGMENT,
                 declarations,
                 code,
-                false,
             );
         }
 
@@ -103,54 +88,47 @@ export const RoundedCornersEffect = GObject.registerClass(
             }
             borderedAreaRadius *= radius / outerRadius;
 
-            this.#setUniforms(
-                bounds,
-                radius,
-                borderWidth,
-                borderColor,
-                borderedAreaBounds,
-                borderedAreaRadius,
-                pixelStep,
-                exponent,
-            );
+            let changed = false;
+            changed = this.#setUniform('bounds', bounds) || changed;
+            changed = this.#setUniform('clipRadius', [radius]) || changed;
+            changed = this.#setUniform('borderWidth', [borderWidth]) || changed;
+            changed = this.#setUniform('borderColor', borderColor) || changed;
+            changed =
+                this.#setUniform('borderedAreaBounds', borderedAreaBounds) ||
+                changed;
+            changed =
+                this.#setUniform('borderedAreaClipRadius', [
+                    borderedAreaRadius,
+                ]) || changed;
+            changed = this.#setUniform('pixelStep', pixelStep) || changed;
+            changed = this.#setUniform('exponent', [exponent]) || changed;
+
+            if (changed) {
+                this.queue_repaint();
+            }
         }
 
         /**
-         * @param {number[]} bounds
-         * @param {number} radius
-         * @param {number} borderWidth
-         * @param {number[]} borderColor
-         * @param {number[]} borderedAreaBounds
-         * @param {number} borderedAreaRadius
-         * @param {number[]} pixelStep
-         * @param {number} exponent
+         * Send a uniform to the shader if its value changed.
+         *
+         * @param {string} name - Name of the uniform in the shader.
+         * @param {number[]} values - The components of the uniform.
+         * @returns {boolean} Whether the value was sent.
          */
-        #setUniforms(
-            bounds,
-            radius,
-            borderWidth,
-            borderColor,
-            borderedAreaBounds,
-            borderedAreaRadius,
-            pixelStep,
-            exponent,
-        ) {
-            const uniforms = Effect.uniforms;
-            this.set_uniform_float(uniforms.bounds, 4, bounds);
-            this.set_uniform_float(uniforms.clipRadius, 1, [radius]);
-            this.set_uniform_float(uniforms.borderWidth, 1, [borderWidth]);
-            this.set_uniform_float(uniforms.borderColor, 4, borderColor);
-            this.set_uniform_float(
-                uniforms.borderedAreaBounds,
-                4,
-                borderedAreaBounds,
-            );
-            this.set_uniform_float(uniforms.borderedAreaClipRadius, 1, [
-                borderedAreaRadius,
-            ]);
-            this.set_uniform_float(uniforms.pixelStep, 2, pixelStep);
-            this.set_uniform_float(uniforms.exponent, 1, [exponent]);
-            this.queue_repaint();
+        #setUniform(name, values) {
+            const prev = this.#lastUniforms.get(name);
+            if (
+                prev &&
+                prev.length === values.length &&
+                prev.every((v, i) => v === values[i])
+            ) {
+                return false;
+            }
+
+            // Store a copy, borderColor comes from a mutable settings object.
+            this.#lastUniforms.set(name, [...values]);
+            this.set_uniform_float(name, values.length, values);
+            return true;
         }
     },
 );

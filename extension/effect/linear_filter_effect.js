@@ -3,17 +3,27 @@
  * in the overview look better.
  */
 
+import Clutter from 'gi://Clutter';
 import Cogl from 'gi://Cogl';
 import GObject from 'gi://GObject';
-import Shell from 'gi://Shell';
 
 export const LinearFilterEffect = GObject.registerClass(
-    {},
-    class extends Shell.GLSLEffect {
-        vfunc_build_pipeline() {
-            this.add_glsl_snippet(Cogl.SnippetHook.FRAGMENT, '', '', false);
+    {GTypeName: 'RwcUltimateLinearFilterEffect'},
+    class extends Clutter.ShaderEffect {
+        /**
+         * The effect only changes the texture filtering, so the snippet
+         * leaves the shader as it is.
+         *
+         * @returns {Cogl.Snippet}
+         */
+        vfunc_get_static_snippet() {
+            return Cogl.Snippet.new(Cogl.SnippetHook.FRAGMENT, '', '');
         }
 
+        /**
+         * @param {Clutter.PaintNode} node
+         * @param {Clutter.PaintContext} ctx
+         */
         vfunc_paint_target(node, ctx) {
             this.get_pipeline()?.set_layer_filters(
                 0,
