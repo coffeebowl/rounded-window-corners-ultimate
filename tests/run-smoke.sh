@@ -3,7 +3,8 @@
 #
 # Usage: tests/run-smoke.sh [wayland|x11] [screenshot.png]
 #
-# RWC_SMOKE_SCRIPT selects another automation script, for example
+# RWC_SMOKE_MONITOR sets the size of the virtual monitor, 1280x720 by
+# default. RWC_SMOKE_SCRIPT selects another automation script, for example
 # tests/coverage-smoke.js. RWC_SMOKE_LOG keeps the session log.
 #
 # The session uses its own XDG directories and an in-memory GSettings
@@ -51,7 +52,8 @@ log="$scratch/session.log"
 # Keep the log for inspection if RWC_SMOKE_LOG names a file.
 trap '[[ -n "${RWC_SMOKE_LOG:-}" && -f "$log" ]] && cp -- "$log" "$RWC_SMOKE_LOG"; rm -rf -- "$scratch"' EXIT
 if ! timeout -k 3s 60s dbus-run-session -- gnome-shell --headless \
-    --force-animations "${compositor_args[@]}" --virtual-monitor 1280x720 \
+    --force-animations "${compositor_args[@]}" \
+    --virtual-monitor "${RWC_SMOKE_MONITOR:-1280x720}" \
     --automation-script "${RWC_SMOKE_SCRIPT:-$repo_root/tests/smoke.js}" > "$log" 2>&1; then
     cat "$log"
     exit 1
