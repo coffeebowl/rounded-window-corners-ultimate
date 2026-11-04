@@ -63,7 +63,8 @@ export async function run() {
     await Scripting.waitTestWindows();
     await Scripting.sleep(700);
 
-    let actors = roundedActors();
+    // Largest window first, so screenshots are comparable between runs.
+    let actors = roundedActors().sort((a, b) => b.width - a.width);
     check(actors.length >= 2, 'Expected rounded effects on two test windows');
     if (GLib.getenv('RWC_TEST_BACKEND') === 'x11') {
         check(
