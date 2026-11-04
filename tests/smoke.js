@@ -1,0 +1,134 @@
+// Automation script for tests/run-smoke.sh. Runs inside a private headless
+// GNOME Shell 51 session, never inside the running desktop.
+//
+// Based on tests/gnome51-smoke.mjs from a1c7e0/rounded-window-corners.
+
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
+import Meta from 'gi://Meta';
+import Shell from 'gi://Shell';
+
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
+
+/**
+ * @param {unknown} value
+ * @param {string} message
+ */
+function check(value, message) {
+    if (!value) throw new Error(message);
+}
+
+/** @returns {Meta.WindowActor[]} Window actors that have the effect. */
+function roundedActors() {
+    return global.get_window_actors().filter(a => a.rwcCustomData);
+}
+
+/**
+ * Save a screenshot of the whole stage, if a path was given.
+ *
+ * @param {string} path
+ */
+async function screenshot(path) {
+    const file = Gio.File.new_for_path(path);
+    const stream = file.replace(null, false, Gio.FileCreateFlags.NONE, null);
+    const shooter = new Shell.Screenshot();
+    await shooter.screenshot_area(0, 0, 1280, 720, stream);
+    stream.close(null);
+}
+
+export async function run() {
+    const root = GLib.getenv('RWC_TEST_EXTENSION');
+    const file = Gio.File.new_for_path(`${root}/metadata.json`);
+    const [, bytes] = file.load_contents(null);
+    const metadata = JSON.parse(new TextDecoder().decode(bytes));
+    const {default: Extension} = await import(`file://${root}/extension.js`);
+    const extension = new Extension({
+        ...metadata,
+        path: root,
+        dir: Gio.File.new_for_path(root),
+    });
+
+    const settings = extension.getSettings();
+    settings.set_boolean('skip-libadwaita-app', false);
+    settings.set_boolean('skip-libhandy-app', false);
+    extension.enable();
+
+    await Scripting.createTestWindow({width: 640, height: 480});
+    await Scripting.createTestWindow({width: 400, height: 300});
+    await Scripting.waitTestWindows();
+    await Scripting.sleep(700);
+
+    let actors = roundedActors();
+    check(actors.length >= 2, 'Expected rounded effects on two test windows');
+    if (GLib.getenv('RWC_TEST_BACKEND') === 'x11') {
+        check(
+            actors.every(
+                a =>
+                    a.metaWindow.get_client_type() ===
+                    Meta.WindowClientType.X11,
+            ),
+            'Expected XWayland test windows',
+        );
+    }
+
+    // The session starts in the overview, leave it for the screenshot.
+    Main.overview.hide();
+    await Scripting.sleep(600);
+
+    // Place the windows side by side for the screenshot.
+    actors[0].metaWindow.move_frame(false, 40, 60);
+    actors[1].metaWindow.move_frame(false, 760, 60);
+    await Scripting.sleep(500);
+    const shot = GLib.getenv('RWC_TEST_SCREENSHOT');
+    if (shot) await screenshot(shot);
+
+    Main.overview.show();
+    await Scripting.sleep(600);
+    Main.overview.hide();
+    await Scripting.sleep(600);
+
+    const workspace = global.workspace_manager.get_active_workspace();
+    const next = global.workspace_manager.get_workspace_by_index(
+        workspace.index() + 1,
+    );
+    if (next) {
+        Main.wm.actionMoveWorkspace(next);
+        await Scripting.sleep(650);
+        Main.wm.actionMoveWorkspace(workspace);
+        await Scripting.sleep(650);
+    }
+
+    const window = actors[0].metaWindow;
+    window.move_resize_frame(false, 30, 30, 720, 500);
+    await Scripting.sleep(350);
+    window.maximize();
+    await Scripting.sleep(350);
+    window.unmaximize();
+    await Scripting.sleep(350);
+    window.make_fullscreen();
+    await Scripting.sleep(350);
+    window.unmake_fullscreen();
+    await Scripting.sleep(350);
+    window.minimize();
+    await Scripting.sleep(350);
+    window.unminimize();
+    await Scripting.sleep(650);
+
+    await Scripting.destroyTestWindows();
+    await Scripting.sleep(400);
+
+    extension.disable();
+    extension.enable();
+    await Scripting.createTestWindow({width: 500, height: 320});
+    await Scripting.waitTestWindows();
+    await Scripting.sleep(600);
+    actors = roundedActors();
+    check(actors.length > 0, 'Re-enable did not create effects');
+
+    extension.disable();
+    check(roundedActors().length === 0, 'Disable leaked window effects');
+    await Scripting.destroyTestWindows();
+
+    print('RWC_SMOKE_PASS');
+}
