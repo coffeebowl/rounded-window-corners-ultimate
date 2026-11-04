@@ -11,7 +11,7 @@ import GObject from 'gi://GObject';
 import {gettext as _} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
 import {
-    getPref,
+    getPrefCopy,
     prefs,
     Schema,
     setPref,
@@ -78,7 +78,7 @@ export const ResetPage = GObject.registerClass(
                 .get_default_value('global-rounded-corner-settings')
                 ?.recursiveUnpack();
 
-            const currentRoundedCornerSettings = getPref(
+            const currentRoundedCornerSettings = getPrefCopy(
                 'global-rounded-corner-settings',
             );
 

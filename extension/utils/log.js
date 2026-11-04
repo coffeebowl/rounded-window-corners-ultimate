@@ -1,17 +1,24 @@
 /** @file Provides wrapper functions for printing out debug messages. */
 
-import {getPref} from './settings.js';
+import {getPref, prefs} from './settings.js';
 
 /**
- * Log a message with a [RWC Ultimate] prefix, but only
- * when debug mode is enabled.
+ * Log a message with a [RWC Ultimate] prefix, but only when debug mode is
+ * enabled.
  *
- * @param {...unknown} args - Values to log.
+ * Pass a function to build the message only when it is actually logged, so
+ * hot paths do not build strings that are thrown away:
+ * `logDebug(() => `Updating ${win.wmClass}`)`.
+ *
+ * @param {...unknown} args - Values to log, or a single function returning
+ *   the message.
  */
 export function logDebug(...args) {
-    if (getPref('debug-mode')) {
-        console.log(`[RWC Ultimate] ${args}`);
-    }
+    if (!prefs || !getPref('debug-mode')) return;
+
+    const message =
+        args.length === 1 && typeof args[0] === 'function' ? args[0]() : args;
+    console.log(`[RWC Ultimate] ${message}`);
 }
 
 /**

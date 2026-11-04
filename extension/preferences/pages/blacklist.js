@@ -10,7 +10,7 @@ import GObject from 'gi://GObject';
 
 import {gettext as _} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
-import {bindPref, getPref, setPref} from '../../utils/settings.js';
+import {bindPref, getPrefCopy, setPref} from '../../utils/settings.js';
 import {AppRow} from '../widgets/app_row.js';
 
 export const BlacklistPage = GObject.registerClass(
@@ -24,7 +24,7 @@ export const BlacklistPage = GObject.registerClass(
         InternalChildren: ['blacklistGroup', 'useWhitelist'],
     },
     class extends Adw.PreferencesPage {
-        #blacklist = getPref('blacklist');
+        #blacklist = getPrefCopy('blacklist');
 
         constructor() {
             super();

@@ -56,6 +56,18 @@ export const Schema = {
 export let prefs;
 
 /**
+ * Unpacked values by key. Unpacking a GVariant allocates new objects on
+ * every call, and some keys are read on every window update, so values are
+ * kept until GSettings reports a change.
+ *
+ * @type {Map<string, unknown>}
+ */
+const cache = new Map();
+
+/** Handler ID of the `changed` signal that invalidates {@link cache}. */
+let changedId = 0;
+
+/**
  * Initialize the {@link prefs} object with existing GSettings.
  *
  * @param {import('gi://Gio').default.Settings} gSettings - GSettings to initialize the prefs with.
@@ -63,10 +75,17 @@ export let prefs;
 export function initPrefs(gSettings) {
     resetOutdated(gSettings);
     prefs = gSettings;
+    cache.clear();
+    // Connected before anyone else listens to `changed`, so other handlers
+    // already read the new value.
+    changedId = prefs.connect('changed', (_settings, key) => cache.delete(key));
 }
 
 /** Delete the {@link prefs} object for garbage collection. */
 export function uninitPrefs() {
+    if (prefs && changedId) prefs.disconnect(changedId);
+    changedId = 0;
+    cache.clear();
     prefs = null;
 }
 
@@ -74,12 +93,30 @@ export function uninitPrefs() {
  * Get a preference from GSettings and convert it from a GLib Variant to a
  * JavaScript type.
  *
+ * The value is cached and shared between callers. Do not modify it, copy it
+ * first if needed.
+ *
  * @template {SchemaKey} K
  * @param {K} key - The key of the preference to get.
  * @returns {SchemaType[K]} The value of the preference.
  */
 export function getPref(key) {
-    return prefs.get_value(key).recursiveUnpack();
+    if (!cache.has(key)) {
+        cache.set(key, prefs.get_value(key).recursiveUnpack());
+    }
+    return /** @type {SchemaType[K]} */ (cache.get(key));
+}
+
+/**
+ * Get a preference as a deep copy that the caller may modify, for example
+ * in the preferences window before writing it back with {@link setPref}.
+ *
+ * @template {SchemaKey} K
+ * @param {K} key - The key of the preference to get.
+ * @returns {SchemaType[K]} A copy of the value.
+ */
+export function getPrefCopy(key) {
+    return JSON.parse(JSON.stringify(getPref(key)));
 }
 
 /**
@@ -101,6 +138,8 @@ export function setPref(key, value) {
     }
 
     prefs.set_value(key, variant);
+    // GSettings reports the change as well, but not necessarily right away.
+    cache.delete(key);
 }
 
 /**

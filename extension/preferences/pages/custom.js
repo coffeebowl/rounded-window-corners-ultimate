@@ -11,7 +11,7 @@ import GObject from 'gi://GObject';
 
 import {gettext as _} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
-import {getPref, setPref} from '../../utils/settings.js';
+import {getPrefCopy, setPref} from '../../utils/settings.js';
 import {
     CustomSettingsRow,
     CustomSettingsRowClass,
@@ -28,7 +28,7 @@ export const CustomPage = GObject.registerClass(
         InternalChildren: ['customGroup'],
     },
     class extends Adw.PreferencesPage {
-        #customWindowSettings = getPref(
+        #customWindowSettings = getPrefCopy(
             'custom-rounded-corner-settings',
         );
 
@@ -96,7 +96,7 @@ export const CustomPage = GObject.registerClass(
             if (oldWmClass === '') {
                 // If the old WM_CLASS is empty, the override was just created,
                 // so we need to initialize it with the values from global settings.
-                this.#customWindowSettings[newWmClass] = getPref(
+                this.#customWindowSettings[newWmClass] = getPrefCopy(
                     'global-rounded-corner-settings',
                 );
             } else {

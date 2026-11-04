@@ -9,7 +9,7 @@ import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import GObject from 'gi://GObject';
 
-import {bindPref, getPref, setPref} from '../../utils/settings.js';
+import {bindPref, getPrefCopy, setPref} from '../../utils/settings.js';
 import {EditShadowPage} from './edit_shadow.js';
 import {ResetPage} from './reset.js';
 
@@ -41,7 +41,7 @@ export const GeneralPage = GObject.registerClass(
         ],
     },
     class extends Adw.PreferencesPage {
-        #settings = getPref('global-rounded-corner-settings');
+        #settings = getPrefCopy('global-rounded-corner-settings');
 
         // Bind all buttons to respective prefs.
         constructor() {
