@@ -1,0 +1,40 @@
+name: Release the extension
+
+on:
+  push:
+    tags:
+      - '51.*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish a release
+    runs-on: ubuntu-latest
+    container: fedora:latest
+    steps:
+      - name: Install build dependencies
+        run: dnf install -y make gettext gjs jq /usr/bin/gnome-extensions
+
+      - name: Checkout the repository
+        uses: actions/checkout@v4
+
+      - name: Check that the tag matches version-name
+        run: |
+          version=$(jq -r '."version-name"' extension/metadata.json)
+          if [ "$version" != "$GITHUB_REF_NAME" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match version-name $version" >&2
+            exit 1
+          fi
+
+      - name: Build the extension
+        run: make pack
+
+      - name: Run the unit tests
+        run: make test
+
+      - name: Publish the release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: rounded-window-corners-ultimate@coffeebowl.shell-extension.zip
