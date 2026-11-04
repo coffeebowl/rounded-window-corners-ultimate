@@ -78,8 +78,8 @@ export function getRoundedCornersCfg(win) {
  */
 export function computeBounds(win, target, [x, y, width, height]) {
     const bounds = {
-        x1: x + 1,
-        y1: y + 1,
+        x1: x,
+        y1: y,
         x2: x + target.width + width,
         y2: y + target.height + height,
     };

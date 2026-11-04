@@ -40,10 +40,9 @@ uniform float borderedAreaClipRadius;
 // Exponent to use for squircle corners
 uniform float exponent;
 
-// I'm acually not sure what this does, but it's used in the original Mutter code :)
-// It seems like this is needed to convert between texture coordinates and pixel
-// coordinates, but I'm not sure.
-uniform vec2 pixelStep;
+// Where the offscreen texture lies in actor coordinates, as {x, y, width,
+// height}. Clutter pads the texture, so it is larger than the actor.
+uniform vec4 textureRect;
 
 // Calculate whether a point is within the rounded window when using regular
 // circular corner rounding.
@@ -159,7 +158,7 @@ float getPointOpacity(vec2 p, vec4 bounds, float clipRadius, float exponent) {
 // at the beginning of the file, the `cogl_color_out` variable is used to set
 // the point color.
 void main() {
-    vec2 p = cogl_tex_coord0_in.xy / pixelStep;
+    vec2 p = textureRect.xy + cogl_tex_coord0_in.xy * textureRect.zw;
 
     float pointAlpha = getPointOpacity(p, bounds, clipRadius, exponent);
 

@@ -50,10 +50,10 @@
         -->
         {
           'padding': &lt;{
-            'left': &lt;uint32 1&gt;,
-            'right': &lt;uint32 1&gt;,
-            'top': &lt;uint32 1&gt;,
-            'bottom': &lt;uint32 1&gt;
+            'left': &lt;uint32 0&gt;,
+            'right': &lt;uint32 0&gt;,
+            'top': &lt;uint32 0&gt;,
+            'bottom': &lt;uint32 0&gt;
           }&gt;,
           'keepRoundedCorners': &lt;{
             'maximized': &lt;false&gt;,

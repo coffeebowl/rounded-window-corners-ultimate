@@ -33,6 +33,8 @@ smoke:
 	tests/run-smoke.sh wayland
 	tests/run-smoke.sh x11
 	RWC_SMOKE_SCRIPT=$(CURDIR)/tests/coverage-smoke.js tests/run-smoke.sh x11
+	RWC_SMOKE_SCRIPT=$(CURDIR)/tests/border-smoke.js tests/run-smoke.sh wayland
+	RWC_SMOKE_SCRIPT=$(CURDIR)/tests/border-smoke.js tests/run-smoke.sh x11
 
 pot:
 	xgettext --from-code=UTF-8 \

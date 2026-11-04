@@ -13,6 +13,21 @@ const [declarations, code] = await readShader(
     'shader/rounded_corners.frag',
 );
 
+/**
+ * Enlarge a range of the actor the way Clutter does for the offscreen
+ * texture (`_clutter_actor_box_enlarge_for_effects` in Clutter 51): round
+ * the length and pad it by 3 pixels, so its size does not depend on
+ * sub-pixel positions. This puts up to 2 pixels before the start.
+ *
+ * @param {number} start - Start of the painted range.
+ * @param {number} end - End of the painted range.
+ * @returns {[number, number]} Start and length of the texture.
+ */
+function enlargeForEffects(start, end) {
+    const length = Math.round(end - start) + 3;
+    return [Math.ceil(end + 0.75) - length, length];
+}
+
 export const RoundedCornersEffect = GObject.registerClass(
     {GTypeName: 'RwcUltimateRoundedCornersEffect'},
     class Effect extends Clutter.ShaderEffect {
@@ -36,6 +51,52 @@ export const RoundedCornersEffect = GObject.registerClass(
                 declarations,
                 code,
             );
+        }
+
+        /**
+         * Called whenever Clutter fills the offscreen texture again, after the
+         * window changed. Find out where the texture lies in the actor, the
+         * same way Clutter does right after this.
+         *
+         * Clutter does not make the texture as large as the actor: it pads it
+         * and positions it by the actor's paint volume, which can be a third
+         * of a pixel larger than the actor at fractional scales. The shader
+         * needs this to map texture coordinates to window coordinates;
+         * otherwise corners and borders move by up to 2 pixels.
+         *
+         * @param {Clutter.PaintNode} node
+         * @param {Clutter.PaintContext} paintContext
+         * @returns {boolean}
+         */
+        vfunc_pre_paint(node, paintContext) {
+            const volume = this.actor.get_paint_volume();
+            let x, y, width, height;
+            if (volume) {
+                const origin = volume.get_origin();
+                [x, width] = enlargeForEffects(
+                    origin.x,
+                    origin.x + volume.get_width(),
+                );
+                [y, height] = enlargeForEffects(
+                    origin.y,
+                    origin.y + volume.get_height(),
+                );
+            } else {
+                // Clutter falls back to the allocation, in parent coordinates.
+                const box = this.actor.get_allocation_box();
+                [x, width] = enlargeForEffects(box.x1, box.x2);
+                [y, height] = enlargeForEffects(box.y1, box.y2);
+                x -= box.x1;
+                y -= box.y1;
+            }
+            // Clutter casts the start to an integer.
+            this.#setUniform('textureRect', [
+                Math.trunc(x),
+                Math.trunc(y),
+                width,
+                height,
+            ]);
+            return super.vfunc_pre_paint(node, paintContext);
         }
 
         /**
@@ -83,11 +144,6 @@ export const RoundedCornersEffect = GObject.registerClass(
                 borderedAreaRadius = 0.0;
             }
 
-            // The actor can still have no size right after it was created.
-            const pixelStep = [
-                1 / Math.max(1, this.actor.get_width()),
-                1 / Math.max(1, this.actor.get_height()),
-            ];
 
             // This is needed for squircle corners
             let exponent = smoothing * 10 + 2;
@@ -116,7 +172,6 @@ export const RoundedCornersEffect = GObject.registerClass(
                 this.#setUniform('borderedAreaClipRadius', [
                     borderedAreaRadius,
                 ]) || changed;
-            changed = this.#setUniform('pixelStep', pixelStep) || changed;
             changed = this.#setUniform('exponent', [exponent]) || changed;
 
             if (changed) {
