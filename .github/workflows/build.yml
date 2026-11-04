@@ -27,5 +27,5 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: rounded-window-corners@fxgn.shell-extension
+          name: rounded-window-corners-ultimate@coffeebowl.shell-extension
           path: '*.shell-extension.zip'

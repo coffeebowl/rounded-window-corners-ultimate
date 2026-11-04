@@ -7,8 +7,8 @@ import Gio from 'gi://Gio';
 
 const connection = Gio.DBus.session;
 const busName = 'org.gnome.Shell';
-const interfaceName = 'org.gnome.Shell.Extensions.RoundedWindowCorners';
-const objectPath = '/org/gnome/shell/extensions/RoundedWindowCorners';
+const interfaceName = 'org.gnome.Shell.Extensions.RoundedWindowCornersUltimate';
+const objectPath = '/org/gnome/shell/extensions/RoundedWindowCornersUltimate';
 
 /** Open the window picker and select a window. */
 export function pick() {

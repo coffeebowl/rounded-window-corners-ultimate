@@ -1,80 +1,63 @@
-![Screenshot](https://github.com/user-attachments/assets/0bde1a86-37c8-4d53-b9ca-e049799f5355)
-
 <div align="center">
-  <h1>Rounded Window Corners Reborn</h1>
-  <p><i>A GNOME extension that adds rounded corners to all windows</i></p>
-  <a href="https://extensions.gnome.org/extension/7048/rounded-window-corners-reborn">
-    <img src="https://img.shields.io/badge/Install%20from-extensions.gnome.org-4A86CF?style=for-the-badge&logo=Gnome&logoColor=white"/>
-  </a>
+  <h1>Rounded Window Corners Ultimate</h1>
+  <p><i>Soft, rounded corners for every window on GNOME Shell 51</i></p>
 </div>
 <br>
 
-> [!NOTE]
-> This is the fork of the [original rounded-window-corners extension](https://github.com/yilozt/rounded-window-corners) by @yilozt, which is no longer maintained.
+Hi there! 👋 This is a personal fork of
+[Rounded Window Corners Reborn](https://github.com/flexagoon/rounded-window-corners)
+by flexagoon, which lovingly continues the original
+[rounded-window-corners](https://github.com/yilozt/rounded-window-corners)
+by yilozt. Both did the hard work, this fork just builds on top of it.
+
+## What this fork is about
+
+- **GNOME Shell 51 on Wayland only.** One target, done well, instead of
+  many versions done halfway.
+- **Plain JavaScript, no build step.** Clone it, pack it, done.
+- **Stable and light.** No effects on fullscreen windows and games, and the
+  best fixes from other forks collected in one place.
+- **Eventually no settings at all.** Every window should simply look like a
+  native libadwaita window, without any fiddling.
+
+The extension is not on extensions.gnome.org (yet).
+
+## Made with AI 🤖
+
+Full transparency: the code in this fork is written with the help of an AI
+coding assistant. A human decides what gets built, reviews the changes and
+tests them on a real desktop before they land. If you spot something odd,
+please open an issue, that helps a lot!
 
 ## Installation
-
-### From Gnome Extensions
-
-The extension is available on [extensions.gnome.org](https://extensions.gnome.org). You can install it directly [from here](https://extensions.gnome.org/extension/7048/rounded-window-corners-reborn/), or from the Extension Manager app.
-
-### From pre-built archives
-
-If you want to install the latest commit of the extension, you can get a
-pre-built archive from GitHub Actions.
-
-1. Sign in to GitHub.
-2. Go to [the build action page](https://github.com/flexagoon/rounded-window-corners/actions/workflows/build.yml)
-3. Click on the latest workflow run
-4. Download the extension from the "artifacts" section at the bottom
-5. Install it with the `gnome-extensions install` command
-
-### From source code
 
 1. Install the dependencies:
     - make
     - gettext
-    - `gnome-extensions` (part of GNOME Shell)
+    - `gnome-extensions` (comes with GNOME Shell)
 
-    Those packages are available in the repositories of most linux distros, so
-    you can simply install them with your package manager.
-
-2. Build the extension
+2. Build and install the extension:
 
     ```bash
-    git clone https://github.com/flexagoon/rounded-window-corners
-    cd rounded-window-corners
+    git clone https://github.com/coffeebowl/rounded-window-corners-ultimate
+    cd rounded-window-corners-ultimate
     make install
     ```
 
-After this, the extension will be installed to
-`~/.local/share/gnome-shell/extensions`.
+3. Log out and back in, then enable it:
 
-### From the unofficial AUR package on Arch Linux
+    ```bash
+    gnome-extensions enable rounded-window-corners-ultimate@coffeebowl
+    ```
 
-If you use Arch, by the way, you can also install from a community-maintained [AUR](https://aur.archlinux.org/) package using [paru](https://github.com/Morganamilo/paru) or [yay](https://github.com/Jguer/yay):
-
-```sh
-paru gnome-shell-extension-rounded-window-corners-reborn-git
-```
-
-> [!WARNING]
-> The `gnome-shell-extension-rounded-window-corners-reborn` package (without `-git`) is based on a fork of this extension. If you're using that package, please report all issues to [the fork repository](https://github.com/GrzegorzKozub/rounded-window-corners) instead.
-
-
-## Translation
-
-You can help with the translation of the extension by submitting translations
-on [Weblate](https://hosted.weblate.org/engage/rounded-window-corners-reborn)
-
-[![Translation status](https://hosted.weblate.org/widget/rounded-window-corners-reborn/multi-auto.svg)](https://hosted.weblate.org/engage/rounded-window-corners-reborn/)
-
-You can also manually edit .po files and submit a PR if you know how to do that.
+Coming from Rounded Window Corners Reborn? Disable it first and log out
+once. GJS keeps registered classes around until the session ends, so the two
+would get in each other's way.
 
 ## Development
 
-The extension is plain JavaScript (GJS ES modules) in `extension/`, there is
-no build step. Available `make` targets:
+Everything lives in `extension/` as plain GJS ES modules. These `make`
+targets are all you need:
 
 ```bash
 make pack     # Pack the extension into a zip file
@@ -83,6 +66,13 @@ make pot      # Update the translation template and .po files
 make clean    # Delete the zip file
 ```
 
-## Credits
+## Thanks ❤️
 
-Thanks to [yotamguttman](https://github.com/yotamguttman) for making an icon for the extension!
+- [flexagoon/rounded-window-corners](https://github.com/flexagoon/rounded-window-corners)
+  for Rounded Window Corners Reborn, the base of this fork.
+- [yilozt/rounded-window-corners](https://github.com/yilozt/rounded-window-corners)
+  for the original extension that started it all.
+
+## License
+
+GPL-3.0-or-later, see [`LICENSE`](LICENSE).

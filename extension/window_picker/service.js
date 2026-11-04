@@ -84,7 +84,7 @@ export class WindowPicker {
     export() {
         this.#dbus.export(
             Gio.DBus.session,
-            '/org/gnome/shell/extensions/RoundedWindowCorners',
+            '/org/gnome/shell/extensions/RoundedWindowCornersUltimate',
         );
         logDebug('DBus Service exported');
     }

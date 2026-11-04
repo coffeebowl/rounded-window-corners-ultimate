@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <schemalist>
   <schema
-    id="org.gnome.shell.extensions.rounded-window-corners-reborn"
-    path="/org/gnome/shell/extensions/rounded-window-corners-reborn/"
+    id="org.gnome.shell.extensions.rounded-window-corners-ultimate"
+    path="/org/gnome/shell/extensions/rounded-window-corners-ultimate/"
   >
 
     <key name="settings-version" type="u">

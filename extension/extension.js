@@ -16,7 +16,7 @@ import {logDebug} from './utils/log.js';
 import {initPrefs, uninitPrefs} from './utils/settings.js';
 import {WindowPicker} from './window_picker/service.js';
 
-export default class RoundedWindowCornersReborn extends Extension {
+export default class RoundedWindowCornersUltimate extends Extension {
     // The extension works by overriding (monkey patching) the code of GNOME
     // Shell's internal methods. InjectionManager is a convenience class that
     // stores references to the original methods and allows to easily restore

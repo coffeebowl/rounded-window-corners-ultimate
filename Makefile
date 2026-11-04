@@ -1,4 +1,4 @@
-UUID = rounded-window-corners@fxgn
+UUID = rounded-window-corners-ultimate@coffeebowl
 SRCDIR = extension
 ZIP = $(UUID).shell-extension.zip
 
