@@ -205,6 +205,36 @@ export async function run() {
         );
     }
 
+    // While the system prefers dark, the dark border color applies, but
+    // only once it is set.
+    const isGreen = (shot, px, py) => {
+        const pixels = shot.get_pixels();
+        const i = py * shot.get_rowstride() + px * shot.get_n_channels();
+        return pixels[i] < 60 && pixels[i + 1] > 200 && pixels[i + 2] < 60;
+    };
+    const desktop = new Gio.Settings({
+        schema_id: 'org.gnome.desktop.interface',
+    });
+    desktop.set_string('color-scheme', 'prefer-dark');
+    await Scripting.sleep(300);
+    check(
+        isRed(await screenshot(), x, midY),
+        'Without a dark border color, the border has to stay red',
+    );
+    settings.set_value('dark-border-color', variant('ad', [0, 1, 0, 1]));
+    await Scripting.sleep(300);
+    check(
+        isGreen(await screenshot(), x, midY),
+        'The dark border color has to apply in dark mode',
+    );
+    desktop.set_string('color-scheme', 'default');
+    await Scripting.sleep(300);
+    check(
+        isRed(await screenshot(), x, midY),
+        'The light border color has to return',
+    );
+    settings.reset('dark-border-color');
+
     // At 150 %, a 1 px border covers 1.5 pixels on every side, wherever
     // the window is. Before, it was 1 or 2 pixels depending on the side
     // and position.

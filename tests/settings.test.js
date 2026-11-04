@@ -34,7 +34,7 @@ class FakeSettings {
     }
 
     get_user_value(key) {
-        return this.get_value(key);
+        return key in this.values ? this.get_value(key) : null;
     }
 
     get_value(key) {
@@ -63,6 +63,20 @@ test('reads each key from GSettings only once', () => {
     equal(getPref('border-width'), 2);
     equal(getPref('border-width'), 2);
     equal(settings.unpacks - before, 1);
+    uninitPrefs();
+});
+
+test('optional keys are null until they are set', () => {
+    const settings = new FakeSettings({});
+    initPrefs(settings);
+    equal(getPref('dark-border-color'), null);
+    equal(getPref('dark-border-color'), null, 'cached as null');
+    settings.values['dark-border-color'] = [1, 0, 0, 1];
+    settings.emitChanged('dark-border-color');
+    equal(getPref('dark-border-color')[0], 1);
+    delete settings.values['dark-border-color'];
+    settings.emitChanged('dark-border-color');
+    equal(getPref('dark-border-color'), null, 'null again after a reset');
     uninitPrefs();
 });
 

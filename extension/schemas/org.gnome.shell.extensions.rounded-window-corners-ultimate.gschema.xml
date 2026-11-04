@@ -99,6 +99,40 @@
       </default>
     </key>
 
+    <key name="dark-border-color" type="ad">
+      <summary>Border color while the system prefers dark</summary>
+      <description>Only used once set. Until then the border color of the rounded corner settings applies in dark mode too. Windows with custom settings keep their own color.</description>
+      <default>[0.25, 0.25, 0.25, 1.0]</default>
+    </key>
+
+    <key name="dark-focused-shadow" type="a{si}">
+      <summary>Shadow for focused windows while the system prefers dark</summary>
+      <description>Only used once set. Until then focused-shadow applies in dark mode too.</description>
+      <default>
+        {
+          'horizontalOffset': 0,
+          'verticalOffset': 4,
+          'blurOffset': 28,
+          'spreadRadius': 4,
+          'opacity': 60
+        }
+      </default>
+    </key>
+
+    <key name="dark-unfocused-shadow" type="a{si}">
+      <summary>Shadow for unfocused windows while the system prefers dark</summary>
+      <description>Only used once set. Until then unfocused-shadow applies in dark mode too.</description>
+      <default>
+        {
+          'horizontalOffset': 0,
+          'verticalOffset': 2,
+          'blurOffset': 12,
+          'spreadRadius': -1,
+          'opacity': 65
+        }
+      </default>
+    </key>
+
     <key name="keep-shadow-for-maximized-fullscreen" type="b">
       <summary>Keep shadows for maximized and fullscreen windows</summary>
       <default>false</default>

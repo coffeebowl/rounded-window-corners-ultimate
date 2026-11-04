@@ -5,6 +5,7 @@
 
 import GLib from 'gi://GLib';
 import Meta from 'gi://Meta';
+import St from 'gi://St';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
@@ -50,6 +51,8 @@ const coveragePausedBy = new Set();
 const SHADOW_KEYS = new Set([
     'focused-shadow',
     'unfocused-shadow',
+    'dark-focused-shadow',
+    'dark-unfocused-shadow',
     'keep-shadow-for-maximized-fullscreen',
 ]);
 
@@ -89,6 +92,12 @@ export function enableEffect() {
 
     // Update the effect when settings are changed.
     prefs.connectObject('changed', (_, key) => onSettingsChanged(key), owner);
+    // Border color and shadows can differ between light and dark.
+    St.Settings.get().connectObject(
+        'notify::color-scheme',
+        () => queueUpdateAll(SETTINGS),
+        owner,
+    );
 
     // Add the effect to all windows when the extension is enabled.
     const windowActors = global.get_window_actors();
@@ -156,6 +165,7 @@ export function disableEffect() {
     for (const state of [...states.values()]) untrack(state);
 
     prefs?.disconnectObject(owner);
+    St.Settings.get().disconnectObject(owner);
     global.display.disconnectObject(owner);
     global.windowManager.disconnectObject(owner);
     Main.layoutManager.disconnectObject(owner);

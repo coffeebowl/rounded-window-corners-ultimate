@@ -5,6 +5,7 @@ import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import GObject from 'gi://GObject';
 import Meta from 'gi://Meta';
+import St from 'gi://St';
 
 import {APP_SHADOWS, SHADOW_PADDING} from '../utils/constants.js';
 import {findInFile} from '../utils/file.js';
@@ -45,8 +46,40 @@ export function unwrapActor(actor) {
 }
 
 /**
+ * Check whether the system prefers dark styles.
+ *
+ * @returns {boolean}
+ */
+export function prefersDark() {
+    return (
+        St.Settings.get().colorScheme === St.SystemColorScheme.PREFER_DARK
+    );
+}
+
+/**
+ * The global settings with the dark border color, kept as long as neither
+ * changes, so windows share one object.
+ *
+ * @type {{base: object, color: number[], cfg: import('../utils/types.js').RoundedCornerSettings} | null}
+ */
+let darkCfg = null;
+
+/**
+ * Get the shadow settings for a window, for its focus and the system's
+ * color scheme.
+ *
+ * @param {import('gi://Meta').default.Window} win - The window.
+ * @returns {import('../utils/types.js').BoxShadow}
+ */
+export function getShadowCfg(win) {
+    const key = win.appears_focused ? 'focused-shadow' : 'unfocused-shadow';
+    return (prefersDark() && getPref(`dark-${key}`)) || getPref(key);
+}
+
+/**
  * Get the correct rounded corner setting for a window (custom settings if a
- * window has custom overrides, global settings otherwise).
+ * window has custom overrides, global settings otherwise). While the system
+ * prefers dark, the global settings use the dark border color, if set.
  *
  * @param {import('gi://Meta').default.Window} win - The window to get the settings for.
  * @returns {import('../utils/types.js').RoundedCornerSettings} The matching settings object.
@@ -60,7 +93,16 @@ export function getRoundedCornersCfg(win) {
         !customCfgList[win.wmClass] ||
         !customCfgList[win.wmClass].enabled
     ) {
-        return globalCfg;
+        const color = prefersDark() ? getPref('dark-border-color') : null;
+        if (!color) return globalCfg;
+        if (darkCfg?.base !== globalCfg || darkCfg.color !== color) {
+            darkCfg = {
+                base: globalCfg,
+                color,
+                cfg: {...globalCfg, borderColor: color},
+            };
+        }
+        return darkCfg.cfg;
     }
 
     return customCfgList[win.wmClass];

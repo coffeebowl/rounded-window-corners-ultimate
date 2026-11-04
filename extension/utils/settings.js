@@ -20,6 +20,9 @@ import GLib from 'gi://GLib';
  * @property {import('./types.js').CustomRoundedCornerSettings} custom-rounded-corner-settings
  * @property {import('./types.js').BoxShadow} focused-shadow
  * @property {import('./types.js').BoxShadow} unfocused-shadow
+ * @property {[number, number, number, number] | null} dark-border-color
+ * @property {import('./types.js').BoxShadow | null} dark-focused-shadow
+ * @property {import('./types.js').BoxShadow | null} dark-unfocused-shadow
  * @property {boolean} keep-shadow-for-maximized-fullscreen
  * @property {boolean} debug-mode
  * @property {boolean} tweak-kitty-terminal
@@ -43,10 +46,25 @@ export const Schema = {
     'custom-rounded-corner-settings': 'a{sv}',
     'focused-shadow': 'a{si}',
     'unfocused-shadow': 'a{si}',
+    'dark-border-color': 'ad',
+    'dark-focused-shadow': 'a{si}',
+    'dark-unfocused-shadow': 'a{si}',
     'keep-shadow-for-maximized-fullscreen': 'b',
     'debug-mode': 'b',
     'tweak-kitty-terminal': 'b',
 };
+
+/**
+ * Keys that only count when they were set, for example with gsettings or
+ * dconf-editor. Until then {@link getPref} returns null for them, and the
+ * value they override applies. They have no place in the preferences
+ * window, since the settings go away once the values are fixed.
+ */
+const OPTIONAL_KEYS = new Set([
+    'dark-border-color',
+    'dark-focused-shadow',
+    'dark-unfocused-shadow',
+]);
 
 /**
  * The raw GSettings object for direct manipulation.
@@ -102,7 +120,10 @@ export function uninitPrefs() {
  */
 export function getPref(key) {
     if (!cache.has(key)) {
-        cache.set(key, prefs.get_value(key).recursiveUnpack());
+        const variant = OPTIONAL_KEYS.has(key)
+            ? prefs.get_user_value(key)
+            : prefs.get_value(key);
+        cache.set(key, variant ? variant.recursiveUnpack() : null);
     }
     return /** @type {SchemaType[K]} */ (cache.get(key));
 }

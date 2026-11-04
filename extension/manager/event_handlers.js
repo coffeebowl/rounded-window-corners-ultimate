@@ -13,13 +13,13 @@ import St from 'gi://St';
 import {RoundedCornersEffect} from '../effect/rounded_corners_effect.js';
 import {ROUNDED_CORNERS_EFFECT, WOBBLY_EFFECT} from '../utils/constants.js';
 import {logDebug} from '../utils/log.js';
-import {getPref} from '../utils/settings.js';
 import {
     computeBounds,
     computeShadowActorOffset,
     computeWindowContentsOffset,
     detectApp,
     getRoundedCornersCfg,
+    getShadowCfg,
     isGame,
     needsAppType,
     releaseApp,
@@ -451,9 +451,7 @@ function createShadow(actor) {
  */
 function refreshShadow(state) {
     const {win, shadow} = state;
-    const shadowSettings = win.appears_focused
-        ? getPref('focused-shadow')
-        : getPref('unfocused-shadow');
+    const shadowSettings = getShadowCfg(win);
 
     const hidden = updateShadowActorStyle(
         win,
