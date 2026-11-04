@@ -97,17 +97,23 @@ const OverviewShadowActorClone = GObject.registerClass(
                 ? this.windowPreview.windowContainer.get_allocation_box()
                 : this.windowPreview.get_allocation_box();
 
+            // A window that was just opened can have no frame yet. Dividing by
+            // its width would put NaN into the allocation, so give the shadow
+            // an empty allocation until the window has a size.
             const metaWindow =
                 this.windowPreview._windowActor.get_meta_window();
-            if (!metaWindow) {
+            const frameWidth = metaWindow?.get_frame_rect().width ?? 0;
+            if (frameWidth <= 0) {
+                box.set_origin(0, 0);
+                box.set_size(0, 0);
+                super.vfunc_allocate(box);
                 return;
             }
 
             // Scale the shadow by the same scale factor that the window preview
             // is scaled by.
             const containerScaleFactor =
-                windowContainerBox.get_width() /
-                metaWindow.get_frame_rect().width;
+                windowContainerBox.get_width() / frameWidth;
             const paddings = SHADOW_PADDING * containerScaleFactor;
 
             // Setup the bounding box of the shadow actor.
