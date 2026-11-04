@@ -70,23 +70,26 @@ export const RoundedCornersEffect = GObject.registerClass(
                 borderedAreaRadius = 0.0;
             }
 
+            // The actor can still have no size right after it was created.
             const pixelStep = [
-                1 / this.actor.get_width(),
-                1 / this.actor.get_height(),
+                1 / Math.max(1, this.actor.get_width()),
+                1 / Math.max(1, this.actor.get_height()),
             ];
 
             // This is needed for squircle corners
             let exponent = smoothing * 10 + 2;
             let radius = outerRadius * 0.5 * exponent;
-            const maxRadius = Math.min(
-                bounds[3] - bounds[0],
-                bounds[4] - bounds[1],
+            // The corner circles start at `bounds + radius`, so the radius
+            // can be at most half of the shorter side.
+            const maxRadius = Math.max(
+                0,
+                Math.min(bounds[2] - bounds[0], bounds[3] - bounds[1]) / 2,
             );
             if (radius > maxRadius) {
                 exponent *= maxRadius / radius;
                 radius = maxRadius;
             }
-            borderedAreaRadius *= radius / outerRadius;
+            borderedAreaRadius *= outerRadius > 0 ? radius / outerRadius : 0;
 
             let changed = false;
             changed = this.#setUniform('bounds', bounds) || changed;
