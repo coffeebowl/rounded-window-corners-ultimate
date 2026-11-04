@@ -43,6 +43,9 @@ export const SETTINGS = 8;
  * @property {boolean} detecting - Whether the app detection is running.
  * @property {number} pid - Process ID used for the app detection, or 0.
  * @property {number} unminimizeTimeoutId - Pending Chromium refresh.
+ * @property {boolean} suspended - Hidden behind an opaque window that
+ *   covers the monitor, so the effect and shadow are paused.
+ * @property {boolean} lampHidden - The magic lamp animation hides the shadow.
  * @property {number} dirty - Bitmask of pending changes.
  * @property {number} laterId - ID of the queued update, or 0.
  * @property {boolean} destroyed - Set once the window is gone.
@@ -116,6 +119,8 @@ export function createState(actor, win) {
         detecting: false,
         pid: 0,
         unminimizeTimeoutId: 0,
+        suspended: false,
+        lampHidden: false,
         dirty: 0,
         laterId: 0,
         destroyed: false,

@@ -1,5 +1,6 @@
 /** @file Provides various utility functions used within signal handling code. */
 
+import Cogl from 'gi://Cogl';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Meta from 'gi://Meta';
@@ -180,6 +181,55 @@ export function coversMonitor(win) {
         frame.y <= area.y &&
         frame.x + frame.width >= area.x + area.width &&
         frame.y + frame.height >= area.y + area.height
+    );
+}
+
+/**
+ * Get the monitor a window lies on completely.
+ *
+ * @param {import('gi://Meta').default.Window} win - The window to check.
+ * @returns {number | null} The monitor index, or null if the window spans
+ *   several monitors or lies outside of all.
+ */
+export function monitorContaining(win) {
+    const monitor = win.get_monitor();
+    if (monitor < 0) return null;
+
+    const frame = win.get_frame_rect();
+    const area = global.display.get_monitor_geometry(monitor);
+    const inside =
+        frame.x >= area.x &&
+        frame.y >= area.y &&
+        frame.x + frame.width <= area.x + area.width &&
+        frame.y + frame.height <= area.y + area.height;
+    return inside ? monitor : null;
+}
+
+/**
+ * Check whether nothing behind a window actor can show through it: the
+ * actor is fully opaque and not scaled or moved by an animation, and the client's buffer has no
+ * alpha channel. Mutter does not export the opaque region, so buffers with
+ * alpha (most GTK apps, transparent terminals) never count as opaque. Games
+ * usually render without alpha.
+ *
+ * @param {import('gi://Meta').default.WindowActor} actor - The window actor.
+ * @returns {boolean}
+ */
+export function isOpaque(actor) {
+    if (
+        actor.opacity < 255 ||
+        actor.scaleX !== 1 ||
+        actor.scaleY !== 1 ||
+        actor.translationX !== 0 ||
+        actor.translationY !== 0
+    )
+        return false;
+
+    const texture = actor.get_texture()?.get_texture();
+    if (!texture?.is_simple()) return false;
+
+    return (
+        texture.get_plane(0).get_components() === Cogl.TextureComponents.RGB
     );
 }
 

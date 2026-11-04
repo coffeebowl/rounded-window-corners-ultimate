@@ -3,10 +3,15 @@ import {
     InjectionManager,
 } from 'resource:///org/gnome/shell/extensions/extension.js';
 import {layoutManager} from 'resource:///org/gnome/shell/ui/main.js';
+import {SwitcherPopup} from 'resource:///org/gnome/shell/ui/switcherPopup.js';
 import {WindowPreview} from 'resource:///org/gnome/shell/ui/windowPreview.js';
 import {WorkspaceAnimationController} from 'resource:///org/gnome/shell/ui/workspaceAnimation.js';
 
-import {disableEffect, enableEffect} from './manager/event_manager.js';
+import {
+    disableEffect,
+    enableEffect,
+    setCoverageAllowed,
+} from './manager/event_manager.js';
 import {
     addShadowInOverview,
     removeOverviewShadows,
@@ -84,6 +89,8 @@ export default class RoundedWindowCornersUltimate extends Extension {
             '_prepareWorkspaceSwitch',
             prepareWorkspaceSwitch =>
                 function (workspaceIndices) {
+                    // Windows of two workspaces are visible during the switch.
+                    setCoverageAllowed('workspace-switch', false);
                     prepareWorkspaceSwitch.call(this, workspaceIndices);
                     addShadowsInWorkspaceSwitch(this);
                 },
@@ -95,6 +102,29 @@ export default class RoundedWindowCornersUltimate extends Extension {
                 function (switchData) {
                     removeShadowsAfterWorkspaceSwitch(this);
                     finishWorkspaceSwitch.call(this, switchData);
+                    setCoverageAllowed('workspace-switch', true);
+                },
+        );
+
+        // Alt+Tab and the other switchers show clones of windows. A paused
+        // window would show square corners there, so pausing is off while
+        // a switcher is open.
+        this.#injectionManager.overrideMethod(
+            SwitcherPopup.prototype,
+            'show',
+            show =>
+                function (...args) {
+                    setCoverageAllowed('switcher', false);
+                    return show.call(this, ...args);
+                },
+        );
+        this.#injectionManager.overrideMethod(
+            SwitcherPopup.prototype,
+            '_onDestroy',
+            onDestroy =>
+                function (...args) {
+                    setCoverageAllowed('switcher', true);
+                    return onDestroy.call(this, ...args);
                 },
         );
 

@@ -44,12 +44,14 @@ export function flush(state, bits) {
     const win = actor.metaWindow;
     if (!win) return;
 
+    // Follow the texture for every window, also those that never get the
+    // effect: a new buffer can make a window opaque, which matters for
+    // pausing the windows below it.
+    syncTexture(state);
+
     // The surface actor of XWayland clients and the wm class can arrive
     // after the window. Their signals queue another update.
-    if (!actor.firstChild || win.wmClass === null) return;
-
-    syncTexture(state);
-    if (!state.texture) return;
+    if (!actor.firstChild || win.wmClass === null || !state.texture) return;
 
     if (state.app === null && needsAppType()) startAppDetection(state);
 
@@ -107,9 +109,38 @@ export function onMinimize(state) {
     const magicLampEffect = state.actor.get_effect('minimize-magic-lamp-effect');
     if (magicLampEffect && state.shadow && state.effect) {
         logDebug('Minimizing with magic lamp effect');
-        state.shadow.visible = false;
+        state.lampHidden = true;
+        syncShadowVisible(state);
         state.effect.enabled = false;
     }
+}
+
+/**
+ * Apply a change of {@link WindowState.suspended}: a window hidden behind an
+ * opaque fullscreen window pauses its effect, so Mutter culls it again and
+ * skips its offscreen copy, and hides its shadow.
+ *
+ * Runs before the frame is painted, so a window that becomes visible again
+ * has its corners in the same frame.
+ *
+ * @param {WindowState} state - The window.
+ */
+export function applySuspended(state) {
+    logDebug(() => `${state.suspended ? 'Pausing' : 'Resuming'} ${state.win.wmClass}`);
+    if (state.effect && !state.lampHidden) state.effect.enabled = !state.suspended;
+    syncShadowVisible(state);
+}
+
+/**
+ * Show the shadow only while the window is shown and neither paused nor in
+ * a magic lamp animation.
+ *
+ * @param {WindowState} state - The window.
+ */
+export function syncShadowVisible(state) {
+    if (!state.shadow) return;
+    state.shadow.visible =
+        state.actor.visible && !state.suspended && !state.lampHidden;
 }
 
 /**
@@ -125,9 +156,15 @@ export function onUnminimize(state) {
     const magicLampEffect = state.actor.get_effect(
         'unminimize-magic-lamp-effect',
     );
+    if (!magicLampEffect && state.lampHidden) {
+        // Minimized with the magic lamp, but restored without it.
+        state.lampHidden = false;
+        syncShadowVisible(state);
+        if (state.effect) state.effect.enabled = !state.suspended;
+    }
     if (magicLampEffect && state.shadow && state.effect) {
-        const {shadow, effect} = state;
-        shadow.visible = false;
+        state.lampHidden = true;
+        syncShadowVisible(state);
         const timer = magicLampEffect.timerId;
 
         timer.connectObject(
@@ -136,8 +173,9 @@ export function onUnminimize(state) {
                 // Wait until the effect is 98% completed
                 if (source.get_progress() > 0.98) {
                     logDebug('Unminimizing with magic lamp effect');
-                    shadow.visible = true;
-                    effect.enabled = true;
+                    state.lampHidden = false;
+                    syncShadowVisible(state);
+                    if (state.effect) state.effect.enabled = !state.suspended;
                     timer.disconnectObject(state);
                     state.emitters.delete(timer);
                 }
@@ -267,14 +305,14 @@ function createEffect(state, target) {
     const shadow = createShadow(state.actor);
     state.shadow = shadow;
 
-    // Bind properties of the window to the shadow actor.
+    // Bind properties of the window to the shadow actor. Visibility is set
+    // by syncShadowVisible, since it also depends on the window state.
     for (const prop of [
         'pivot-point',
         'translation-x',
         'translation-y',
         'scale-x',
         'scale-y',
-        'visible',
     ]) {
         state.bindings.push(
             state.actor.bind_property(
@@ -285,6 +323,7 @@ function createEffect(state, target) {
             ),
         );
     }
+    syncShadowVisible(state);
 }
 
 /**
@@ -369,9 +408,9 @@ function refreshShadow(state) {
 function updateEffect(state) {
     const {actor, win, effect, shadow} = state;
 
-    if (!effect.enabled) {
-        effect.enabled = true;
-    }
+    // A paused window keeps its uniforms up to date, so it looks right as
+    // soon as it is visible again.
+    effect.enabled = !state.suspended;
 
     const cfg = getRoundedCornersCfg(win);
     const windowContentOffset = computeWindowContentsOffset(win);
