@@ -10,9 +10,8 @@ import GLib from 'gi://GLib';
 import GObject from 'gi://GObject';
 import St from 'gi://St';
 
-import {ClipShadowEffect} from '../effect/clip_shadow_effect.js';
 import {RoundedCornersEffect} from '../effect/rounded_corners_effect.js';
-import {CLIP_SHADOW_EFFECT, ROUNDED_CORNERS_EFFECT} from '../utils/constants.js';
+import {ROUNDED_CORNERS_EFFECT} from '../utils/constants.js';
 import {logDebug} from '../utils/log.js';
 import {getPref} from '../utils/settings.js';
 import {
@@ -132,15 +131,19 @@ export function applySuspended(state) {
 }
 
 /**
- * Show the shadow only while the window is shown and neither paused nor in
- * a magic lamp animation.
+ * Show the shadow only while the window is shown, neither paused nor in a
+ * magic lamp animation, and not maximized or fullscreen (unless the
+ * settings keep the shadow then). A hidden actor is not painted at all.
  *
  * @param {WindowState} state - The window.
  */
 export function syncShadowVisible(state) {
     if (!state.shadow) return;
     state.shadow.visible =
-        state.actor.visible && !state.suspended && !state.lampHidden;
+        state.actor.visible &&
+        !state.suspended &&
+        !state.lampHidden &&
+        !state.shadowHidden;
 }
 
 /**
@@ -364,11 +367,10 @@ function createShadow(actor) {
             yExpand: true,
         }),
     });
+    // The class only sets the cross-fade when the focus changes. The image
+    // has a transparent middle, so nothing shows through behind the window
+    // (https://gitlab.gnome.org/GNOME/gnome-shell/-/issues/4474).
     shadow.firstChild.add_style_class_name('shadow');
-
-    // We have to clip the shadow because of this issue:
-    // https://gitlab.gnome.org/GNOME/gnome-shell/-/issues/4474
-    shadow.add_effect_with_name(CLIP_SHADOW_EFFECT, new ClipShadowEffect());
 
     // Draw the shadow actor below the window actor.
     global.windowGroup.insert_child_below(shadow, actor);
@@ -397,7 +399,16 @@ function refreshShadow(state) {
         ? getPref('focused-shadow')
         : getPref('unfocused-shadow');
 
-    updateShadowActorStyle(win, shadow, getRoundedCornersCfg(win), shadowSettings);
+    const hidden = updateShadowActorStyle(
+        win,
+        shadow,
+        getRoundedCornersCfg(win),
+        shadowSettings,
+    );
+    if (hidden !== state.shadowHidden) {
+        state.shadowHidden = hidden;
+        syncShadowVisible(state);
+    }
 }
 
 /**

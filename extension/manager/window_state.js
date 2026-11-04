@@ -46,6 +46,8 @@ export const SETTINGS = 8;
  * @property {boolean} suspended - Hidden behind an opaque window that
  *   covers the monitor, so the effect and shadow are paused.
  * @property {boolean} lampHidden - The magic lamp animation hides the shadow.
+ * @property {boolean} shadowHidden - The settings hide the shadow, for
+ *   maximized and fullscreen windows.
  * @property {number} dirty - Bitmask of pending changes.
  * @property {number} laterId - ID of the queued update, or 0.
  * @property {boolean} destroyed - Set once the window is gone.
@@ -121,6 +123,7 @@ export function createState(actor, win) {
         unminimizeTimeoutId: 0,
         suspended: false,
         lampHidden: false,
+        shadowHidden: false,
         dirty: 0,
         laterId: 0,
         destroyed: false,

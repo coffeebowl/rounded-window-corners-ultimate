@@ -5,10 +5,10 @@ import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Meta from 'gi://Meta';
 
-import {boxShadowCss} from '../utils/box_shadow.js';
 import {APP_SHADOWS, SHADOW_PADDING} from '../utils/constants.js';
 import {findInFile} from '../utils/file.js';
 import {logDebug, logError} from '../utils/log.js';
+import {shadowImage} from '../utils/shadow_files.js';
 import {getPref} from '../utils/settings.js';
 
 /** @typedef {import('../utils/types.js').RoundedWindowActor} RoundedWindowActor */
@@ -120,43 +120,43 @@ export function computeShadowActorOffset([
 /**
  * Update the CSS style of a shadow actor.
  *
+ * The shadow is a pre-rendered image drawn as a 9-slice border image
+ * around the window, see utils/shadow_texture.js. The image reaches
+ * SHADOW_PADDING beyond the window box, so the inner actor fills the whole
+ * shadow actor apart from the window's corner padding.
+ *
  * @param {import('gi://Meta').default.Window} win - The window to update the style for.
  * @param {import('gi://St').default.Bin} actor - The shadow actor to update the style for.
  * @param {import('../utils/types.js').RoundedCornerSettings} cfg - The rounded corner settings of the window.
  * @param {import('../utils/types.js').BoxShadow} shadow - The shadow settings for the window.
+ * @returns {boolean} Whether the shadow should be hidden, for maximized and
+ *   fullscreen windows.
  */
 export function updateShadowActorStyle(win, actor, cfg, shadow) {
     const {left, right, top, bottom} = cfg.padding;
+    const actorStyle = `padding: ${top}px ${right}px ${bottom}px ${left}px;`;
+    if (actor.style !== actorStyle) actor.style = actorStyle;
 
     // Increase the border radius when smoothing is on, using the window's
     // own settings so the shadow matches custom corners.
-    const adjustedBorderRadius = cfg.borderRadius * (1.0 + cfg.smoothing);
-
-    actor.style = `padding: ${SHADOW_PADDING}px;`;
-
+    const image = shadowImage({
+        radius: cfg.borderRadius * (1.0 + cfg.smoothing),
+        blur: shadow.blurOffset,
+        spread: shadow.spreadRadius,
+        offsetX: shadow.horizontalOffset,
+        offsetY: shadow.verticalOffset,
+        opacity: shadow.opacity,
+    });
+    const childStyle = `border-image: url("${image.uri}") ${image.slice};`;
     const child = actor.firstChild;
+    if (child.style !== childStyle) child.style = childStyle;
 
-    const hideShadowForMaximizedFullscreen =
+    return (
         !getPref('keep-shadow-for-maximized-fullscreen') &&
         (win.maximizedHorizontally ||
             win.maximizedVertically ||
-            coversMonitor(win));
-
-    const newChildStyle = hideShadowForMaximizedFullscreen
-        ? 'opacity: 0;'
-        : `background: white;
-               border-radius: ${adjustedBorderRadius}px;
-               ${boxShadowCss(shadow)};
-               margin: ${top}px
-                       ${right}px
-                       ${bottom}px
-                       ${left}px;`;
-
-    // Only update style and queue a redraw when the style actually changed.
-    if (child.style !== newChildStyle) {
-        child.style = newChildStyle;
-        child.queue_redraw();
-    }
+            coversMonitor(win))
+    );
 }
 
 /**

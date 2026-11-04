@@ -9,6 +9,7 @@ import Meta from 'gi://Meta';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import {logDebug, logError} from '../utils/log.js';
+import {clearShadowImages} from '../utils/shadow_files.js';
 import {prefs} from '../utils/settings.js';
 import {findCovered} from './coverage.js';
 import * as handlers from './event_handlers.js';
@@ -61,6 +62,12 @@ const SHADOW_KEYS = new Set([
  * frame is laid out and painted.
  */
 export function enableEffect() {
+    try {
+        clearShadowImages();
+    } catch (e) {
+        logError(e);
+    }
+
     laters = global.compositor.get_laters();
     startUpdates({
         add: fn => laters.add(Meta.LaterType.BEFORE_REDRAW, fn),
