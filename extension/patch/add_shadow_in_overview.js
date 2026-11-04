@@ -6,7 +6,6 @@ import Graphene from 'gi://Graphene';
 
 import {overview} from 'resource:///org/gnome/shell/ui/main.js';
 
-import {LinearFilterEffect} from '../effect/linear_filter_effect.js';
 import {states} from '../manager/window_state.js';
 import {OVERVIEW_SHADOW_ACTOR, SHADOW_PADDING} from '../utils/constants.js';
 import {logDebug} from '../utils/log.js';
@@ -17,8 +16,6 @@ import {logDebug} from '../utils/log.js';
  *
  * @typedef {object} PreviewExtras
  * @property {Clutter.Clone} clone - The shadow clone.
- * @property {Clutter.Effect | null} filter - The linear filter effect.
- * @property {Clutter.Actor | null} filtered - The actor the filter is on.
  * @property {GObject.Binding[]} bindings - Scale bindings to the clone.
  */
 
@@ -53,13 +50,6 @@ export function addShadowInOverview(window, self) {
     // windowContainer has the actual contents of the window preview
     const windowContainer = self.windowContainer;
 
-    // Apply linear interpolation to the window preview to make it look
-    // better (there's an upstream GNOME bug causing windows to be blurry,
-    // this makes the effect less noticeable)
-    const filtered = windowContainer.firstChild;
-    const filter = filtered ? new LinearFilterEffect() : null;
-    if (filter) filtered.add_effect(filter);
-
     // Create a clone of the window's shadow actor and add it to the preview
     const clone = new OverviewShadowActorClone(shadow, self);
     const bindings = [
@@ -68,7 +58,7 @@ export function addShadowInOverview(window, self) {
     ];
     self.insert_child_below(clone, windowContainer);
 
-    previews.set(self, {clone, filter, filtered, bindings});
+    previews.set(self, {clone, bindings});
     self.connectObject('destroy', () => removeFromPreview(self), previews);
 }
 
@@ -89,10 +79,6 @@ function removeFromPreview(preview) {
     preview.disconnectObject(previews);
 
     for (const binding of extras.bindings) binding.unbind();
-    // Only if the filter is still on that actor; the preview may have
-    // replaced its contents in the meantime.
-    if (extras.filter?.get_actor() === extras.filtered)
-        extras.filtered.remove_effect(extras.filter);
     extras.clone.destroy();
 }
 

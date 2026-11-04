@@ -246,8 +246,10 @@ function syncTexture(state) {
     if (state.texture) {
         state.texture.disconnectObject(state);
         state.emitters.delete(state.texture);
+        if (state.effect) state.texture.set_create_mipmaps(true);
     }
     state.texture = texture;
+    if (texture && state.effect) texture.set_create_mipmaps(false);
     if (texture) {
         texture.connectObject(
             'size-changed',
@@ -305,6 +307,12 @@ function createEffect(state, target) {
     state.effect = effect;
     state.effectActor = target;
 
+    // Mutter paints a window below half size from a half-resolution mipmap.
+    // With the effect it would do that even while filling the full-size
+    // offscreen texture, which makes overview previews blurry (upstream
+    // issue #36, pull request #170).
+    state.texture?.set_create_mipmaps(false);
+
     const shadow = createShadow(state.actor);
     state.shadow = shadow;
 
@@ -340,6 +348,7 @@ function removeEffect(state) {
     state.effectActor?.remove_effect_by_name(ROUNDED_CORNERS_EFFECT);
     state.effect = null;
     state.effectActor = null;
+    state.texture?.set_create_mipmaps(true);
 
     for (const binding of state.bindings) binding.unbind();
     state.bindings = [];

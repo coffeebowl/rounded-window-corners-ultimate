@@ -6,6 +6,7 @@ import GObject from 'gi://GObject';
 
 import {readShader} from '../utils/file.js';
 import {getPref} from '../utils/settings.js';
+import {updateTextureFilters} from './texture_filters.js';
 
 const [declarations, code] = await readShader(
     import.meta.url,
@@ -35,6 +36,18 @@ export const RoundedCornersEffect = GObject.registerClass(
                 declarations,
                 code,
             );
+        }
+
+        /**
+         * Keep the window sharp when it is painted scaled down, for example
+         * as a preview in the overview. See texture_filters.js.
+         *
+         * @param {Clutter.PaintNode} node
+         * @param {Clutter.PaintContext} paintContext
+         */
+        vfunc_paint_target(node, paintContext) {
+            updateTextureFilters(this, paintContext);
+            super.vfunc_paint_target(node, paintContext);
         }
 
         /**
