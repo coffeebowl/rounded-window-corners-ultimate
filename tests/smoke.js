@@ -3,6 +3,7 @@
 //
 // Based on tests/gnome51-smoke.mjs from a1c7e0/rounded-window-corners.
 
+import Clutter from 'gi://Clutter';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Meta from 'gi://Meta';
@@ -144,6 +145,30 @@ export async function run() {
     await countUpdates('maximize', () => window.maximize());
     await countUpdates('unmaximize', () => window.unmaximize());
     global.stage.disconnect(paintId);
+
+    // Like the "Compiz windows effect" extension, wobble the window when
+    // its size changes. Connected after the extension, so its handler runs
+    // first. The shadow cannot wobble along, so it hides until the effect
+    // is removed.
+    const wobbleId = global.window_manager.connect('size-change', (_, a) => {
+        if (!a.get_effect('wobbly-compiz-effect')) {
+            a.add_effect_with_name(
+                'wobbly-compiz-effect',
+                new Clutter.DesaturateEffect(),
+            );
+        }
+    });
+    window.maximize();
+    await Scripting.sleep(350);
+    window.unmaximize();
+    await Scripting.sleep(350);
+    global.window_manager.disconnect(wobbleId);
+    check(
+        state.shadow && !state.shadow.visible,
+        'The shadow has to hide while the window wobbles',
+    );
+    actors[0].remove_effect_by_name('wobbly-compiz-effect');
+    check(state.shadow.visible, 'The shadow has to return after wobbling');
 
     window.move_resize_frame(false, 30, 30, 720, 500);
     await Scripting.sleep(350);

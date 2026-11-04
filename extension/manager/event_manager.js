@@ -15,6 +15,7 @@ import {findCovered} from './coverage.js';
 import * as handlers from './event_handlers.js';
 import {coversMonitor, isOpaque, monitorContaining} from './utils.js';
 import {
+    DEFORM,
     FOCUS,
     GEOMETRY,
     SETTINGS,
@@ -106,6 +107,11 @@ export function enableEffect() {
         },
         'in-fullscreen-changed',
         () => queueCoverage(),
+        // "Compiz windows effect" wobbles windows from these signals.
+        'grab-op-begin',
+        (_, win) => withWindow(win, state => queueUpdate(state, DEFORM)),
+        'grab-op-end',
+        (_, win) => withWindow(win, state => queueUpdate(state, DEFORM)),
         owner,
     );
 
@@ -130,6 +136,10 @@ export function enableEffect() {
         (_, actor) => withState(actor, handlers.onMinimize),
         'unminimize',
         (_, actor) => withState(actor, handlers.onUnminimize),
+        'size-change',
+        (_, actor) => withState(actor, state => queueUpdate(state, DEFORM)),
+        'size-changed',
+        (_, actor) => withState(actor, state => queueUpdate(state, DEFORM)),
         // The close animation starts, remove the effect from the window.
         'destroy',
         (_, actor) => withState(actor, untrack),
@@ -313,6 +323,17 @@ function untrack(state) {
 function withState(actor, handler) {
     const state = states.get(actor);
     if (state) handler(state);
+}
+
+/**
+ * Run a handler for a window, if it is tracked.
+ *
+ * @param {Meta.Window | null} win - The window from the signal.
+ * @param {(state: import('./window_state.js').WindowState) => void} handler
+ */
+function withWindow(win, handler) {
+    const actor = win?.get_compositor_private();
+    if (actor) withState(actor, handler);
 }
 
 /**

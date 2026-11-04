@@ -11,7 +11,7 @@ import GObject from 'gi://GObject';
 import St from 'gi://St';
 
 import {RoundedCornersEffect} from '../effect/rounded_corners_effect.js';
-import {ROUNDED_CORNERS_EFFECT} from '../utils/constants.js';
+import {ROUNDED_CORNERS_EFFECT, WOBBLY_EFFECT} from '../utils/constants.js';
 import {logDebug} from '../utils/log.js';
 import {getPref} from '../utils/settings.js';
 import {
@@ -27,7 +27,15 @@ import {
     unwrapActor,
     updateShadowActorStyle,
 } from './utils.js';
-import {FOCUS, GEOMETRY, STATE, queueUpdate, states, whenAlive} from './window_state.js';
+import {
+    DEFORM,
+    FOCUS,
+    GEOMETRY,
+    STATE,
+    queueUpdate,
+    states,
+    whenAlive,
+} from './window_state.js';
 
 /** @typedef {import('./window_state.js').WindowState} WindowState */
 
@@ -47,6 +55,7 @@ export function flush(state, bits) {
     // effect: a new buffer can make a window opaque, which matters for
     // pausing the windows below it.
     syncTexture(state);
+    if (bits & DEFORM) syncWobbly(state);
 
     // The surface actor of XWayland clients and the wm class can arrive
     // after the window. Their signals queue another update.
@@ -95,6 +104,7 @@ export function teardown(state) {
     state.pid = 0;
     for (const emitter of state.emitters) emitter.disconnectObject(state);
     state.emitters.clear();
+    state.wobbly = null;
     state.texture = null;
 }
 
@@ -143,6 +153,7 @@ export function syncShadowVisible(state) {
         state.actor.visible &&
         !state.suspended &&
         !state.lampHidden &&
+        !state.wobbly &&
         !state.shadowHidden;
 }
 
@@ -222,6 +233,42 @@ function refreshChromiumLater(state) {
             return GLib.SOURCE_REMOVE;
         },
     );
+}
+
+/**
+ * Hide the shadow while the "Compiz windows effect" extension wobbles the
+ * window. The shadow is a separate actor and cannot wobble along.
+ *
+ * The extension adds its effect on its own signals, which may run after
+ * ours, so this runs from the update queue. Removing the effect clears
+ * its `actor` property, which shows the shadow again without polling.
+ *
+ * @param {WindowState} state - The window.
+ */
+function syncWobbly(state) {
+    const effect = state.actor.get_effect(WOBBLY_EFFECT);
+    if (effect === state.wobbly) return;
+
+    if (state.wobbly) {
+        state.wobbly.disconnectObject(state);
+        state.emitters.delete(state.wobbly);
+    }
+    state.wobbly = effect;
+    if (effect) {
+        effect.connectObject(
+            'notify::actor',
+            () => {
+                if (effect.actor === state.actor) return;
+                effect.disconnectObject(state);
+                state.emitters.delete(effect);
+                if (state.wobbly === effect) state.wobbly = null;
+                syncShadowVisible(state);
+            },
+            state,
+        );
+        state.emitters.add(effect);
+    }
+    syncShadowVisible(state);
 }
 
 /** Keep every shadow actor directly below its window actor. */

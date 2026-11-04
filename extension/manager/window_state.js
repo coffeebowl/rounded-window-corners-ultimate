@@ -20,6 +20,8 @@ export const FOCUS = 2;
 export const STATE = 4;
 /** The extension settings changed. */
 export const SETTINGS = 8;
+/** Another extension may have added an effect that deforms the window. */
+export const DEFORM = 16;
 
 /**
  * Everything the extension keeps for one window.
@@ -46,6 +48,9 @@ export const SETTINGS = 8;
  * @property {boolean} suspended - Hidden behind an opaque window that
  *   covers the monitor, so the effect and shadow are paused.
  * @property {boolean} lampHidden - The magic lamp animation hides the shadow.
+ * @property {import('gi://Clutter').default.Effect | null} wobbly - The
+ *   wobbly effect of "Compiz windows effect" while it deforms the window;
+ *   it hides the shadow, which cannot wobble along.
  * @property {boolean} shadowHidden - The settings hide the shadow, for
  *   maximized and fullscreen windows.
  * @property {number} dirty - Bitmask of pending changes.
@@ -123,6 +128,7 @@ export function createState(actor, win) {
         unminimizeTimeoutId: 0,
         suspended: false,
         lampHidden: false,
+        wobbly: null,
         shadowHidden: false,
         dirty: 0,
         laterId: 0,
