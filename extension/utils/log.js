@@ -22,10 +22,11 @@ export function logDebug(...args) {
 }
 
 /**
- * Log an error with a [RWC Ultimate] prefix.
+ * Log an error with a [RWC Ultimate] prefix. Error objects are passed on
+ * as they are, so the log keeps their stack trace.
  *
  * @param {...unknown} args - Values to log.
  */
 export function logError(...args) {
-    console.error(`[RWC Ultimate] ${args}`);
+    console.error('[RWC Ultimate]', ...args);
 }

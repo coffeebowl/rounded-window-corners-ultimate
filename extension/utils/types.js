@@ -40,22 +40,8 @@
  */
 
 /**
- * A window actor with rounded corners.
- *
- * Window actors carry extra custom properties: `rwcCustomData` holds
- * `{shadow: St.Bin, unminimizedTimeoutId: number,
- * propertyBindings: GObject.Binding[]}` and `rwcLock` an optional
- * `Promise<void>`.
+ * A window actor that has a window. Everything the extension keeps per
+ * window lives in a WindowState, see manager/window_state.js.
  *
  * @typedef {import('gi://Meta').default.WindowActor} RoundedWindowActor
  */
-
-/**
- * Check if a WindowActor has a metaWindow.
- *
- * @param {import('gi://Meta').default.WindowActor} actor - The actor to check.
- * @returns {boolean} Whether the actor has a `metaWindow`.
- */
-export function hasMetaWindow(actor) {
-    return actor.metaWindow !== null;
-}

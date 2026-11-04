@@ -7,9 +7,23 @@ import Graphene from 'gi://Graphene';
 import {overview} from 'resource:///org/gnome/shell/ui/main.js';
 
 import {LinearFilterEffect} from '../effect/linear_filter_effect.js';
-import {shouldEnableEffect} from '../manager/utils.js';
+import {states} from '../manager/window_state.js';
 import {OVERVIEW_SHADOW_ACTOR, SHADOW_PADDING} from '../utils/constants.js';
 import {logDebug} from '../utils/log.js';
+
+/**
+ * What was added to each window preview, so it can be removed again when
+ * the preview goes away or the extension is disabled.
+ *
+ * @typedef {object} PreviewExtras
+ * @property {Clutter.Clone} clone - The shadow clone.
+ * @property {Clutter.Effect | null} filter - The linear filter effect.
+ * @property {Clutter.Actor | null} filtered - The actor the filter is on.
+ * @property {GObject.Binding[]} bindings - Scale bindings to the clone.
+ */
+
+/** @type {Map<object, PreviewExtras>} */
+const previews = new Map();
 
 /**
  * Add a shadow actor to a window preview in the overview.
@@ -17,25 +31,24 @@ import {logDebug} from '../utils/log.js';
  * @param {import('gi://Meta').default.Window} window - The window that the preview is of.
  * @param {import('resource:///org/gnome/shell/ui/windowPreview.js').WindowPreview} self - The window preview that the shadow actor is added to.
  */
-export async function addShadowInOverview(window, self) {
+export function addShadowInOverview(window, self) {
     // Skip attached dialogs — they are added via _updateAttachedDialogs/addDialog
     // and should not get their own shadow clone in the overview.
     // We detect them by checking if the window is transient-for another window,
     // which is always the case for attached dialogs but not for top-level windows.
-    if (window.get_transient_for() !== null) {
+    if (window.get_transient_for() !== null || previews.has(self)) {
         return;
     }
 
     // If the original window doesn't have rounded corners or a shadow,
     // we don't need to do anything, so we can skip it.
-    const hasRoundedCorners = await shouldEnableEffect(window);
-    const windowActor = window.get_compositor_private();
-    const shadow = windowActor.rwcCustomData?.shadow;
-    if (!(hasRoundedCorners && shadow)) {
+    const state = states.get(window.get_compositor_private());
+    const shadow = state?.effect ? state.shadow : null;
+    if (!shadow) {
         return;
     }
 
-    logDebug(`Adding shadow for ${window.wmClass} in overview`);
+    logDebug(() => `Adding shadow for ${window.wmClass} in overview`);
 
     // windowContainer has the actual contents of the window preview
     const windowContainer = self.windowContainer;
@@ -43,13 +56,44 @@ export async function addShadowInOverview(window, self) {
     // Apply linear interpolation to the window preview to make it look
     // better (there's an upstream GNOME bug causing windows to be blurry,
     // this makes the effect less noticeable)
-    windowContainer.firstChild?.add_effect(new LinearFilterEffect());
+    const filtered = windowContainer.firstChild;
+    const filter = filtered ? new LinearFilterEffect() : null;
+    if (filter) filtered.add_effect(filter);
 
     // Create a clone of the window's shadow actor and add it to the preview
-    const shadowActorClone = new OverviewShadowActorClone(shadow, self);
-    windowContainer.bind_property('scale-x', shadowActorClone, 'scale-x', 1);
-    windowContainer.bind_property('scale-y', shadowActorClone, 'scale-y', 1);
-    self.insert_child_below(shadowActorClone, windowContainer);
+    const clone = new OverviewShadowActorClone(shadow, self);
+    const bindings = [
+        windowContainer.bind_property('scale-x', clone, 'scale-x', 1),
+        windowContainer.bind_property('scale-y', clone, 'scale-y', 1),
+    ];
+    self.insert_child_below(clone, windowContainer);
+
+    previews.set(self, {clone, filter, filtered, bindings});
+    self.connectObject('destroy', () => removeFromPreview(self), previews);
+}
+
+/** Remove the shadows and filters from all overview previews. */
+export function removeOverviewShadows() {
+    for (const preview of [...previews.keys()]) removeFromPreview(preview);
+}
+
+/**
+ * Remove what {@link addShadowInOverview} added to a preview.
+ *
+ * @param {object} preview - The window preview.
+ */
+function removeFromPreview(preview) {
+    const extras = previews.get(preview);
+    if (!extras) return;
+    previews.delete(preview);
+    preview.disconnectObject(previews);
+
+    for (const binding of extras.bindings) binding.unbind();
+    // Only if the filter is still on that actor; the preview may have
+    // replaced its contents in the meantime.
+    if (extras.filter?.get_actor() === extras.filtered)
+        extras.filtered.remove_effect(extras.filter);
+    extras.clone.destroy();
 }
 
 /**
@@ -57,7 +101,7 @@ export async function addShadowInOverview(window, self) {
  * size of the shadow to the size of the window preview in the overview.
  */
 const OverviewShadowActorClone = GObject.registerClass(
-    {},
+    {GTypeName: 'RwcUltimateOverviewShadowClone'},
     class extends Clutter.Clone {
         /** @type {import('resource:///org/gnome/shell/ui/windowPreview.js').WindowPreview} */
         windowPreview;

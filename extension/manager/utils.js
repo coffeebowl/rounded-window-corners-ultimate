@@ -1,20 +1,16 @@
-/** @file Provides various utility functions used withing signal handling code. */
+/** @file Provides various utility functions used within signal handling code. */
 
 import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
 import Meta from 'gi://Meta';
 
 import {boxShadowCss} from '../utils/box_shadow.js';
-import {
-    APP_SHADOWS,
-    ROUNDED_CORNERS_EFFECT,
-    SHADOW_PADDING,
-} from '../utils/constants.js';
+import {APP_SHADOWS, SHADOW_PADDING} from '../utils/constants.js';
 import {readFile} from '../utils/file.js';
-import {logDebug} from '../utils/log.js';
+import {logDebug, logError} from '../utils/log.js';
 import {getPref} from '../utils/settings.js';
 
 /** @typedef {import('../utils/types.js').RoundedWindowActor} RoundedWindowActor */
-/** @typedef {import('../effect/rounded_corners_effect.js').RoundedCornersEffect['prototype']} RoundedCornersEffect */
 
 /**
  * Get the actor that rounded corners should be applied to.
@@ -49,24 +45,6 @@ export function getRoundedCornersCfg(win) {
     }
 
     return customCfgList[win.wmClass];
-}
-
-/**
- * Get the Clutter.Effect object for the rounded corner effect of a specific
- * window.
- *
- * @param {RoundedWindowActor} actor - The window actor to get the effect for.
- * @returns {RoundedCornersEffect | null} The corresponding Clutter.Effect object.
- */
-export function getRoundedCornersEffect(actor) {
-    const win = actor.metaWindow;
-    const name = ROUNDED_CORNERS_EFFECT;
-    const isXwayland =
-        win.get_client_type() === Meta.WindowClientType.X11 && actor.firstChild;
-
-    return isXwayland
-        ? actor.firstChild.get_effect(name)
-        : actor.get_effect(name);
 }
 
 /**
@@ -181,12 +159,32 @@ export function updateShadowActorStyle(win, actor, cfg, shadow) {
 }
 
 /**
+ * @typedef {object} AppInfo
+ * @property {'LibHandy' | 'LibAdwaita' | 'Other'} type - The toolkit the app
+ *   is built with, as far as it matters for skipping.
+ * @property {boolean} chromium - Whether the app is Chromium or Electron.
+ */
+
+/**
+ * Check whether the app type has to be known before deciding about the
+ * effect. Only the skip settings depend on it.
+ *
+ * @returns {boolean}
+ */
+export function needsAppType() {
+    return getPref('skip-libadwaita-app') || getPref('skip-libhandy-app');
+}
+
+/**
  * Check whether a window should have rounded corners.
  *
  * @param {import('gi://Meta').default.Window} win - The window to check.
- * @returns {Promise<boolean>} Whether the window should have rounded corners.
+ * @param {AppInfo | null} app - What the app is built with, or null if that
+ *   is not known yet. Windows are left alone until it is known, if a skip
+ *   setting needs it.
+ * @returns {boolean} Whether the window should have rounded corners.
  */
-export async function shouldEnableEffect(win) {
+export function shouldEnableEffect(win, app) {
     // Skip rounded corners for the DING (Desktop Icons NG) extension.
     //
     // https://extensions.gnome.org/extension/2087/desktop-icons-ng-ding/
@@ -196,7 +194,6 @@ export async function shouldEnableEffect(win) {
 
     // Skip blacklisted applications.
     if (win.wmClass === null) {
-        logDebug(`Warning: wm_class_instance of ${win}: ${win.title} is null`);
         return false;
     }
     // handles blacklist / whitelist
@@ -216,23 +213,22 @@ export async function shouldEnableEffect(win) {
     }
 
     // Skip libhandy/libadwaita applications according to settings.
-    const appType = win._appType ?? (await getAppType(win));
-    win._appType = appType; // Cache the result.
-    logDebug(`Check Type of window:${win.wmClass} => ${appType}`);
-
-    if (
-        getPref('skip-libadwaita-app') &&
-        appType === 'LibAdwaita' &&
-        !isException
-    ) {
-        return false;
-    }
-    if (
-        getPref('skip-libhandy-app') &&
-        appType === 'LibHandy' &&
-        !isException
-    ) {
-        return false;
+    if (needsAppType()) {
+        if (app === null) return false;
+        if (
+            getPref('skip-libadwaita-app') &&
+            app.type === 'LibAdwaita' &&
+            !isException
+        ) {
+            return false;
+        }
+        if (
+            getPref('skip-libhandy-app') &&
+            app.type === 'LibHandy' &&
+            !isException
+        ) {
+            return false;
+        }
     }
 
     // Skip maximized/fullscreen windows according to settings.
@@ -247,81 +243,42 @@ export async function shouldEnableEffect(win) {
 }
 
 /**
- * Check if a window is Chromium/Electron-based.
+ * Find out what an app is built with by reading /proc/{pid}/maps once.
+ *
+ * Errors for processes that cannot be read (other users, sandboxes) or that
+ * already exited are expected and only logged in debug mode.
  *
  * @param {import('gi://Meta').default.Window} win - The window to check.
- * @returns {Promise<boolean>} whether the application uses Chromium.
+ * @returns {Promise<AppInfo>}
  */
-export async function isChromium(win) {
-    // Matching both null and undefined is intended.
-    if (win._isChromium != null) return win._isChromium;
-    return await withProcMaps(
-        win,
-        contents => {
-            const hasChromiumShm = contents.includes(
-                '/dev/shm/.org.chromium.Chromium',
-            );
-            win._isChromium = hasChromiumShm;
-            logDebug(win.wmClass, 'chromium', hasChromiumShm);
-            return hasChromiumShm;
-        },
-        () => {
-            win._isChromium = false;
-            return false;
-        },
-    );
-}
+export async function detectApp(win) {
+    /** @type {AppInfo} */
+    const fallback = {type: 'Other', chromium: false};
+    const pid = win.get_pid();
+    if (pid <= 0) return fallback;
 
-/**
- * Get the type of the application (LibHandy/LibAdwaita/Other).
- *
- * @param {import('gi://Meta').default.Window} win - The window to get the type of.
- * @returns {Promise<'LibHandy' | 'LibAdwaita' | 'Other'>} the type of the application.
- */
-function getAppType(win) {
-    return withProcMaps(
-        win,
-        contents => {
-            if (contents.includes('libhandy-1.so')) {
-                return 'LibHandy';
-            }
-
-            if (contents.includes('libadwaita-1.so')) {
-                return 'LibAdwaita';
-            }
-
-            return 'Other';
-        },
-        () => 'Other',
-    );
-}
-
-/**
- * Read /proc/{pid}/maps of a window and process the contents.
- * Suppresses permission errors and logs the rest.
- *
- * `logError` is the global GJS function, not the one from `utils/log.js`.
- *
- * @template T
- * @param {import('gi://Meta').default.Window} win - The window to read the maps from.
- * @param {(contents: string) => T} successCb - The function to run on the read contents.
- * @param {() => T} errorCb - The value to run in case of an error.
- * @returns {Promise<T>} the result of the callback.
- */
-async function withProcMaps(win, successCb, errorCb) {
+    let contents;
     try {
-        const contents = await readFile(`/proc/${win.get_pid()}/maps`);
-        return successCb(contents);
+        contents = await readFile(`/proc/${pid}/maps`);
     } catch (e) {
         if (
-            e instanceof Gio.IOErrorEnum &&
-            e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.PERMISSION_DENIED)
+            e instanceof GLib.Error &&
+            (e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.PERMISSION_DENIED) ||
+                e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.NOT_FOUND))
         ) {
-            logDebug(`Permission denied reading /proc maps for ${win.wmClass}`);
+            logDebug(() => `Cannot read /proc maps for ${win.wmClass}`);
         } else {
             logError(e);
         }
-
-        return errorCb();
+        return fallback;
     }
+
+    /** @type {AppInfo['type']} */
+    let type = 'Other';
+    if (contents.includes('libhandy-1.so')) type = 'LibHandy';
+    else if (contents.includes('libadwaita-1.so')) type = 'LibAdwaita';
+    const chromium = contents.includes('/dev/shm/.org.chromium.Chromium');
+
+    logDebug(() => `${win.wmClass}: ${type}, chromium: ${chromium}`);
+    return {type, chromium};
 }

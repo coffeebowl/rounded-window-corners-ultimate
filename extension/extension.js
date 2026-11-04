@@ -7,10 +7,14 @@ import {WindowPreview} from 'resource:///org/gnome/shell/ui/windowPreview.js';
 import {WorkspaceAnimationController} from 'resource:///org/gnome/shell/ui/workspaceAnimation.js';
 
 import {disableEffect, enableEffect} from './manager/event_manager.js';
-import {addShadowInOverview} from './patch/add_shadow_in_overview.js';
+import {
+    addShadowInOverview,
+    removeOverviewShadows,
+} from './patch/add_shadow_in_overview.js';
 import {
     addShadowsInWorkspaceSwitch,
     removeShadowsAfterWorkspaceSwitch,
+    removeWorkspaceShadows,
 } from './patch/workspace_switch.js';
 import {logDebug} from './utils/log.js';
 import {initPrefs, uninitPrefs} from './utils/settings.js';
@@ -51,6 +55,7 @@ export default class RoundedWindowCornersUltimate extends Extension {
                     layoutManager.disconnect(
                         this.#layoutManagerStartupConnection,
                     );
+                    this.#layoutManagerStartupConnection = null;
                 },
             );
         } else {
@@ -100,6 +105,11 @@ export default class RoundedWindowCornersUltimate extends Extension {
         // Restore patched methods
         this.#injectionManager?.clear();
         this.#injectionManager = null;
+
+        // Remove shadows that were added to overview previews and workspace
+        // switch clones, in case the extension is disabled while they exist.
+        removeOverviewShadows();
+        removeWorkspaceShadows();
 
         this.#windowPicker?.unexport();
         disableEffect();

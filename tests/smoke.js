@@ -19,9 +19,12 @@ function check(value, message) {
     if (!value) throw new Error(message);
 }
 
+/** Window states of the loaded extension, set in run(). */
+let states;
+
 /** @returns {Meta.WindowActor[]} Window actors that have the effect. */
 function roundedActors() {
-    return global.get_window_actors().filter(a => a.rwcCustomData);
+    return global.get_window_actors().filter(a => states.get(a)?.effect);
 }
 
 /**
@@ -43,6 +46,7 @@ export async function run() {
     const [, bytes] = file.load_contents(null);
     const metadata = JSON.parse(new TextDecoder().decode(bytes));
     const {default: Extension} = await import(`file://${root}/extension.js`);
+    ({states} = await import(`file://${root}/manager/window_state.js`));
     const extension = new Extension({
         ...metadata,
         path: root,
@@ -100,6 +104,35 @@ export async function run() {
     }
 
     const window = actors[0].metaWindow;
+    const state = states.get(actors[0]);
+
+    // Count painted frames to check that a window updates at most once per
+    // frame, however many signals a resize emits.
+    let frames = 0;
+    const paintId = global.stage.connect('after-paint', () => frames++);
+    const countUpdates = async (what, action) => {
+        const startFlushes = state.flushes;
+        const startFrames = frames;
+        action();
+        await Scripting.sleep(400);
+        const flushes = state.flushes - startFlushes;
+        const painted = frames - startFrames;
+        print(`RWC_SMOKE ${what}: ${flushes} updates in ${painted} frames`);
+        check(flushes > 0, `${what}: no update`);
+        check(
+            flushes <= painted + 1,
+            `${what}: ${flushes} updates in ${painted} frames`,
+        );
+    };
+
+    await countUpdates('resize burst', () => {
+        for (let i = 0; i < 20; i++)
+            window.move_resize_frame(false, 30 + i, 30, 600 + i * 5, 400);
+    });
+    await countUpdates('maximize', () => window.maximize());
+    await countUpdates('unmaximize', () => window.unmaximize());
+    global.stage.disconnect(paintId);
+
     window.move_resize_frame(false, 30, 30, 720, 500);
     await Scripting.sleep(350);
     window.maximize();
@@ -128,6 +161,13 @@ export async function run() {
 
     extension.disable();
     check(roundedActors().length === 0, 'Disable leaked window effects');
+    check(states.size === 0, 'Disable leaked window states');
+    check(
+        !global.window_group
+            .get_children()
+            .some(child => child.name === 'Shadow Actor'),
+        'Disable leaked shadow actors',
+    );
     await Scripting.destroyTestWindows();
 
     print('RWC_SMOKE_PASS');

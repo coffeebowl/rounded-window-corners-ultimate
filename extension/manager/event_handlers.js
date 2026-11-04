@@ -1,7 +1,8 @@
 /**
- * @file Contains the implementation of handlers for various events that need
- * to be processed by the extension. Those handlers are bound to event signals
- * in event_manager.js.
+ * @file Applies the pending changes of a window: adds or removes the effect,
+ * updates its uniforms and the shadow. Everything here runs from the update
+ * queue in window_state.js, never directly from a signal handler, so effects
+ * are never changed in the middle of a paint.
  */
 
 import Clutter from 'gi://Clutter';
@@ -11,180 +12,135 @@ import St from 'gi://St';
 
 import {ClipShadowEffect} from '../effect/clip_shadow_effect.js';
 import {RoundedCornersEffect} from '../effect/rounded_corners_effect.js';
-import {
-    CLIP_SHADOW_EFFECT,
-    ROUNDED_CORNERS_EFFECT,
-} from '../utils/constants.js';
+import {CLIP_SHADOW_EFFECT, ROUNDED_CORNERS_EFFECT} from '../utils/constants.js';
 import {logDebug} from '../utils/log.js';
 import {getPref} from '../utils/settings.js';
-import {hasMetaWindow} from '../utils/types.js';
 import {
     computeBounds,
     computeShadowActorOffset,
     computeWindowContentsOffset,
+    detectApp,
     getRoundedCornersCfg,
-    getRoundedCornersEffect,
-    isChromium,
     shouldEnableEffect,
     unwrapActor,
     updateShadowActorStyle,
 } from './utils.js';
+import {FOCUS, GEOMETRY, STATE, queueUpdate, states, whenAlive} from './window_state.js';
 
-/** @typedef {import('../utils/types.js').RoundedWindowActor} RoundedWindowActor */
+/** @typedef {import('./window_state.js').WindowState} WindowState */
 
 /**
- * Per-actor queue lock to run event handlers one after another and avoid
- * needlessly refreshing the effect a lot of times.
+ * Apply the pending changes of a window. Called by the update queue at most
+ * once per frame and window.
  *
- * @param {RoundedWindowActor} actor - The actor to lock.
- * @param {() => Promise<void>} fn - The handler to run.
- * @returns {Promise<void>}
+ * @param {WindowState} state - The window.
+ * @param {number} bits - What changed since the last update.
  */
-function withActorLock(actor, fn) {
-    const prev = actor.rwcLock;
-    const next = prev ? prev.then(fn, fn) : fn();
-    actor.rwcLock = next;
-    return next;
+export function flush(state, bits) {
+    const {actor} = state;
+    const win = actor.metaWindow;
+    if (!win) return;
+
+    // The surface actor of XWayland clients and the wm class can arrive
+    // after the window. Their signals queue another update.
+    if (!actor.firstChild || win.wmClass === null) return;
+
+    syncTexture(state);
+    if (!state.texture) return;
+
+    if (state.app === null) startAppDetection(state);
+
+    // Everything except a focus change can decide whether the window has
+    // the effect: maximizing changes the size, fullscreen and settings
+    // change the rules, and so on.
+    if (bits & ~FOCUS) {
+        const wanted = shouldEnableEffect(win, state.app);
+        const target = unwrapActor(actor);
+
+        // The X11 surface actor can be replaced; move the effect along.
+        if (state.effect && state.effectActor !== target) removeEffect(state);
+
+        // An offscreen effect cannot paint a window that has no buffer yet.
+        // The texture's size-changed signal queues the next update once the
+        // first buffer arrives.
+        const [, bufferWidth, bufferHeight] = state.texture.get_preferred_size();
+        const hasSize =
+            actor.width > 0 &&
+            actor.height > 0 &&
+            bufferWidth > 0 &&
+            bufferHeight > 0;
+
+        if (wanted && !state.effect && target && hasSize)
+            createEffect(state, target);
+        else if (!wanted && state.effect) removeEffect(state);
+
+        if (state.effect) updateEffect(state);
+    }
+
+    if (state.shadow) refreshShadow(state);
 }
 
 /**
- * Add the effect to a window if it should have it.
+ * Remove everything the extension added to a window.
  *
- * @param {RoundedWindowActor} actor - The window actor to add the effect to.
- * @returns {Promise<void>}
+ * @param {WindowState} state - The window.
  */
-export function onAddEffect(actor) {
-    return withActorLock(actor, async () => {
-        logDebug(`Adding effect to ${actor?.metaWindow.wmClass}`);
-        const win = actor.metaWindow;
-
-        // Skip windows that already have the effect to prevent a memory leak
-        const shouldHaveEffect = await shouldEnableEffect(win);
-        const effect = getRoundedCornersEffect(actor);
-        const hasEffect = effect && actor.rwcCustomData;
-
-        if (!shouldHaveEffect || hasEffect) {
-            logDebug(`Skipping ${win.wmClass}`);
-            return;
-        }
-
-        createEffect(actor);
-    });
+export function teardown(state) {
+    if (state.effect) removeEffect(state);
+    for (const emitter of state.emitters) emitter.disconnectObject(state);
+    state.emitters.clear();
+    state.texture = null;
 }
 
 /**
- * Create the effect on an actor.
+ * Hide the shadow and pause the corners while the "Compiz alike magic lamp
+ * effect" extension animates a minimize.
  *
- * @param {RoundedWindowActor} actor - The window actor to create the effect on.
+ * @param {WindowState} state - The window being minimized.
  */
-function createEffect(actor) {
-    unwrapActor(actor)?.add_effect_with_name(
-        ROUNDED_CORNERS_EFFECT,
-        new RoundedCornersEffect(),
-    );
-
-    const shadow = createShadow(actor);
-
-    // Bind properties of the window to the shadow actor.
-    /** @type {GObject.Binding[]} */
-    const propertyBindings = [];
-    for (const prop of [
-        'pivot-point',
-        'translation-x',
-        'translation-y',
-        'scale-x',
-        'scale-y',
-        'visible',
-    ]) {
-        const binding = actor.bind_property(
-            prop,
-            shadow,
-            prop,
-            GObject.BindingFlags.SYNC_CREATE,
-        );
-        propertyBindings.push(binding);
-    }
-
-    // Store shadow, app type, visible binding, so that we can access them later
-    actor.rwcCustomData = {
-        shadow,
-        unminimizedTimeoutId: 0,
-        propertyBindings,
-    };
-
-    // Make sure the effect is applied correctly.
-    updateEffect(actor);
-}
-
-/**
- * Remove the effect and the shadow from a window.
- *
- * @param {RoundedWindowActor} actor - The window actor to remove the effect from.
- */
-export function onRemoveEffect(actor) {
-    const name = ROUNDED_CORNERS_EFFECT;
-    unwrapActor(actor)?.remove_effect_by_name(name);
-
-    // Unbind all properties
-    for (const binding of actor.rwcCustomData?.propertyBindings || []) {
-        binding.unbind();
-    }
-
-    // Remove shadow actor
-    const shadow = actor.rwcCustomData?.shadow;
-    if (shadow) {
-        shadow.get_constraints().forEach(constraint => {
-            shadow.remove_constraint(constraint);
-        });
-        global.windowGroup.remove_child(shadow);
-        shadow.clear_effects();
-        shadow.destroy();
-    }
-
-    // Remove all timeout handler
-    const timeoutId = actor.rwcCustomData?.unminimizedTimeoutId;
-    if (timeoutId) {
-        GLib.source_remove(timeoutId);
-    }
-    delete actor.rwcCustomData;
-}
-
-/** @param {RoundedWindowActor} actor - The window actor being minimized. */
-export function onMinimize(actor) {
-    // Compatibility with "Compiz alike magic lamp effect".
-    // When minimizing a window, disable the shadow to make the magic lamp effect
-    // work.
-    const magicLampEffect = actor.get_effect('minimize-magic-lamp-effect');
-    const shadow = actor.rwcCustomData?.shadow;
-    const roundedCornersEffect = getRoundedCornersEffect(actor);
-    if (magicLampEffect && shadow && roundedCornersEffect) {
+export function onMinimize(state) {
+    const magicLampEffect = state.actor.get_effect('minimize-magic-lamp-effect');
+    if (magicLampEffect && state.shadow && state.effect) {
         logDebug('Minimizing with magic lamp effect');
-        shadow.visible = false;
-        roundedCornersEffect.enabled = false;
+        state.shadow.visible = false;
+        state.effect.enabled = false;
     }
 }
 
-/** @param {RoundedWindowActor} actor - The window actor being unminimized. */
-export async function onUnminimize(actor) {
+/**
+ * Show the shadow again after a magic lamp unminimize, and refresh Chromium
+ * windows once they settled.
+ *
+ * @param {WindowState} state - The window being unminimized.
+ */
+export function onUnminimize(state) {
     // Compatibility with "Compiz alike magic lamp effect".
     // When unminimizing a window, wait until the effect is completed before
     // showing the shadow.
-    const magicLampEffect = actor.get_effect('unminimize-magic-lamp-effect');
-    const shadow = actor.rwcCustomData?.shadow;
-    const roundedCornersEffect = getRoundedCornersEffect(actor);
-    if (magicLampEffect && shadow && roundedCornersEffect) {
+    const magicLampEffect = state.actor.get_effect(
+        'unminimize-magic-lamp-effect',
+    );
+    if (magicLampEffect && state.shadow && state.effect) {
+        const {shadow, effect} = state;
         shadow.visible = false;
         const timer = magicLampEffect.timerId;
 
-        const id = timer.connect('new-frame', source => {
-            // Wait until the effect is 98% completed
-            if (source.get_progress() > 0.98) {
-                logDebug('Unminimizing with magic lamp effect');
-                shadow.visible = true;
-                roundedCornersEffect.enabled = true;
-                source.disconnect(id);
-            }
-        });
+        timer.connectObject(
+            'new-frame',
+            source => {
+                // Wait until the effect is 98% completed
+                if (source.get_progress() > 0.98) {
+                    logDebug('Unminimizing with magic lamp effect');
+                    shadow.visible = true;
+                    effect.enabled = true;
+                    timer.disconnectObject(state);
+                    state.emitters.delete(timer);
+                }
+            },
+            state,
+        );
+        // Disconnected in teardown if the window goes away first.
+        state.emitters.add(timer);
     }
 
     // Chromium has a bug where windows are sometimes unminimized to the
@@ -194,17 +150,15 @@ export async function onUnminimize(actor) {
     // cut off a part of the window.
     //
     // See https://github.com/flexagoon/rounded-window-corners/issues/124
-    if (
-        (await isChromium(actor.metaWindow)) &&
-        actor.rwcCustomData !== undefined
-    ) {
-        const oldTimeout = actor.rwcCustomData.unminimizedTimeoutId;
-        if (oldTimeout !== 0) GLib.source_remove(oldTimeout);
-        actor.rwcCustomData.unminimizedTimeoutId = GLib.timeout_add(
+    if (state.app?.chromium && state.effect) {
+        if (state.unminimizeTimeoutId)
+            GLib.source_remove(state.unminimizeTimeoutId);
+        state.unminimizeTimeoutId = GLib.timeout_add(
             GLib.PRIORITY_DEFAULT,
             250,
             () => {
-                refreshRoundedCorners(actor);
+                state.unminimizeTimeoutId = 0;
+                queueUpdate(state, GEOMETRY);
                 return GLib.SOURCE_REMOVE;
             },
         );
@@ -213,27 +167,119 @@ export async function onUnminimize(actor) {
 
 /** Keep every shadow actor directly below its window actor. */
 export function onRestacked() {
-    for (const actor of global.get_window_actors()) {
-        const shadow = actor.rwcCustomData?.shadow;
-
-        if (!(actor.visible && shadow)) {
-            continue;
-        }
-
+    for (const {actor, shadow} of states.values()) {
+        if (!(shadow && actor.visible)) continue;
         global.windowGroup.set_child_below_sibling(shadow, actor);
     }
 }
 
-export const onSizeChanged = refreshRoundedCorners;
+/**
+ * Follow the window's current texture. Its `size-changed` signal is needed
+ * besides `notify::size` on the actor; without it, windows can stay
+ * invisible with Dash to Dock until they are pinned.
+ *
+ * @param {WindowState} state - The window.
+ */
+function syncTexture(state) {
+    const texture = state.actor.get_texture();
+    if (texture === state.texture) return;
 
-export const onFocusChanged = refreshShadow;
+    if (state.texture) {
+        state.texture.disconnectObject(state);
+        state.emitters.delete(state.texture);
+    }
+    state.texture = texture;
+    if (texture) {
+        texture.connectObject(
+            'size-changed',
+            () => queueUpdate(state, GEOMETRY),
+            state,
+        );
+        state.emitters.add(texture);
+    }
+}
 
-export const onSettingsChanged = refreshAllRoundedCorners;
+/**
+ * Find out once whether the app uses libadwaita, libhandy or Chromium, and
+ * update the window when the answer arrives.
+ *
+ * @param {WindowState} state - The window.
+ */
+function startAppDetection(state) {
+    if (state.detecting) return;
+    state.detecting = true;
+    whenAlive(state, detectApp(state.win), app => {
+        state.app = app;
+        queueUpdate(state, STATE);
+    });
+}
+
+/**
+ * Add the effect and the shadow to a window.
+ *
+ * @param {WindowState} state - The window.
+ * @param {Clutter.Actor} target - The actor to add the effect to.
+ */
+function createEffect(state, target) {
+    logDebug(() => `Adding effect to ${state.win.wmClass}`);
+
+    const effect = new RoundedCornersEffect();
+    target.add_effect_with_name(ROUNDED_CORNERS_EFFECT, effect);
+    state.effect = effect;
+    state.effectActor = target;
+
+    const shadow = createShadow(state.actor);
+    state.shadow = shadow;
+
+    // Bind properties of the window to the shadow actor.
+    for (const prop of [
+        'pivot-point',
+        'translation-x',
+        'translation-y',
+        'scale-x',
+        'scale-y',
+        'visible',
+    ]) {
+        state.bindings.push(
+            state.actor.bind_property(
+                prop,
+                shadow,
+                prop,
+                GObject.BindingFlags.SYNC_CREATE,
+            ),
+        );
+    }
+}
+
+/**
+ * Remove the effect and the shadow from a window.
+ *
+ * @param {WindowState} state - The window.
+ */
+function removeEffect(state) {
+    logDebug(() => `Removing effect from ${state.win.wmClass}`);
+
+    state.effectActor?.remove_effect_by_name(ROUNDED_CORNERS_EFFECT);
+    state.effect = null;
+    state.effectActor = null;
+
+    for (const binding of state.bindings) binding.unbind();
+    state.bindings = [];
+
+    state.shadow?.destroy();
+    state.shadow = null;
+
+    if (state.unminimizeTimeoutId) {
+        GLib.source_remove(state.unminimizeTimeoutId);
+        state.unminimizeTimeoutId = 0;
+    }
+}
 
 /**
  * Create the shadow actor for a window.
  *
- * @param {RoundedWindowActor} actor - The window actor to create the shadow actor for.
+ * @param {import('gi://Meta').default.WindowActor} actor - The window actor to create the shadow actor for.
+ * @returns {St.Bin}
  */
 function createShadow(actor) {
     const shadow = new St.Bin({
@@ -244,8 +290,6 @@ function createShadow(actor) {
         }),
     });
     shadow.firstChild.add_style_class_name('shadow');
-
-    refreshShadow(actor);
 
     // We have to clip the shadow because of this issue:
     // https://gitlab.gnome.org/GNOME/gnome-shell/-/issues/4474
@@ -268,75 +312,26 @@ function createShadow(actor) {
 }
 
 /**
- * Refresh the shadow actor for a window.
+ * Update the shadow style for the window's focus and settings.
  *
- * @param {RoundedWindowActor} actor - The window actor to refresh the shadow for.
+ * @param {WindowState} state - The window.
  */
-function refreshShadow(actor) {
-    const win = actor.metaWindow;
-    const shadow = actor.rwcCustomData?.shadow;
-    if (!shadow) return;
-
+function refreshShadow(state) {
+    const {win, shadow} = state;
     const shadowSettings = win.appears_focused
         ? getPref('focused-shadow')
         : getPref('unfocused-shadow');
 
-    const cfg = getRoundedCornersCfg(win);
-
-    updateShadowActorStyle(win, shadow, cfg, shadowSettings);
+    updateShadowActorStyle(win, shadow, getRoundedCornersCfg(win), shadowSettings);
 }
 
 /**
- * Refresh rounded corners state and settings for a window.
+ * Update effect uniforms and shadow constraints for a window.
  *
- * @param {RoundedWindowActor} actor - The window actor to refresh the rounded corners settings for.
+ * @param {WindowState} state - The window.
  */
-function refreshRoundedCorners(actor) {
-    return withActorLock(actor, async () => {
-        const win = actor.metaWindow;
-
-        const shouldHaveEffect = await shouldEnableEffect(win);
-
-        const windowInfo = actor.rwcCustomData;
-        const effect = getRoundedCornersEffect(actor);
-
-        const hasEffect = effect && windowInfo;
-
-        // onAddEffect already skips windows that shouldn't have rounded corners.
-        // This if statement is just for code readability to match the check for
-        // onRemoveEffect below.
-        if (!hasEffect && shouldHaveEffect) {
-            createEffect(actor);
-
-            // createEffect already calls updateEffect at the end,
-            // so return here to avoid running the update twice.
-            return;
-        }
-
-        if (hasEffect && !shouldHaveEffect) {
-            onRemoveEffect(actor);
-            return;
-        }
-
-        // Don'd do anything when the window doesn't have the effect and shouldn't have it.
-        if (!hasEffect) return;
-
-        updateEffect(actor);
-    });
-}
-
-/**
- * Update effect uniforms and constraints for a window.
- *
- * @param {RoundedWindowActor} actor - The window actor to update the effect for.
- */
-function updateEffect(actor) {
-    const win = actor.metaWindow;
-    const windowInfo = actor.rwcCustomData;
-    if (!windowInfo) return;
-
-    const effect = getRoundedCornersEffect(actor);
-    if (!effect) return;
+function updateEffect(state) {
+    const {actor, win, effect, shadow} = state;
 
     if (!effect.enabled) {
         effect.enabled = true;
@@ -346,23 +341,10 @@ function updateEffect(actor) {
     const windowContentOffset = computeWindowContentsOffset(win);
     effect.updateUniforms(cfg, computeBounds(actor, windowContentOffset));
 
-    const shadow = windowInfo.shadow;
     const offsets = computeShadowActorOffset(windowContentOffset);
-    const constraints = shadow.get_constraints();
-    constraints.forEach((constraint, i) => {
+    shadow.get_constraints().forEach((constraint, i) => {
         if (constraint instanceof Clutter.BindConstraint) {
             constraint.offset = offsets[i];
         }
     });
-
-    refreshShadow(actor);
-}
-
-/** Refresh rounded corners settings for all windows. */
-function refreshAllRoundedCorners() {
-    for (const actor of global.get_window_actors()) {
-        if (hasMetaWindow(actor)) {
-            refreshRoundedCorners(actor);
-        }
-    }
 }
