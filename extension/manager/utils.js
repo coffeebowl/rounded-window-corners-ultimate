@@ -139,7 +139,7 @@ export function updateShadowActorStyle(win, actor, cfg, shadow) {
         !getPref('keep-shadow-for-maximized-fullscreen') &&
         (win.maximizedHorizontally ||
             win.maximizedVertically ||
-            win.fullscreen);
+            coversMonitor(win));
 
     const newChildStyle = hideShadowForMaximizedFullscreen
         ? 'opacity: 0;'
@@ -156,6 +156,31 @@ export function updateShadowActorStyle(win, actor, cfg, shadow) {
         child.style = newChildStyle;
         child.queue_redraw();
     }
+}
+
+/**
+ * Check whether a window covers its whole monitor: fullscreen windows, and
+ * borderless windows in monitor size that do not report fullscreen, as
+ * games often do. Mutter's `is_monitor_sized()` only covers override
+ * redirect windows and windows the size of the whole screen.
+ *
+ * @param {import('gi://Meta').default.Window} win - The window to check.
+ * @returns {boolean}
+ */
+export function coversMonitor(win) {
+    if (win.fullscreen) return true;
+
+    const monitor = win.get_monitor();
+    if (monitor < 0) return false;
+
+    const frame = win.get_frame_rect();
+    const area = global.display.get_monitor_geometry(monitor);
+    return (
+        frame.x <= area.x &&
+        frame.y <= area.y &&
+        frame.x + frame.width >= area.x + area.width &&
+        frame.y + frame.height >= area.y + area.height
+    );
 }
 
 /**
@@ -231,9 +256,10 @@ export function shouldEnableEffect(win, app) {
         }
     }
 
-    // Skip maximized/fullscreen windows according to settings.
+    // Skip maximized/fullscreen windows according to settings. Borderless
+    // windows in monitor size count as fullscreen.
     const maximized = win.maximizedHorizontally || win.maximizedVertically;
-    const fullscreen = win.fullscreen;
+    const fullscreen = coversMonitor(win);
     const cfg = getRoundedCornersCfg(win);
     return (
         !(maximized || fullscreen) ||
