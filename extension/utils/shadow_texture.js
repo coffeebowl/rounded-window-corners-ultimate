@@ -116,17 +116,6 @@ function gaussianBlur(data, width, height, sigma) {
 }
 
 /**
- * @param {number} edge0
- * @param {number} edge1
- * @param {number} x
- * @returns {number}
- */
-function smoothstep(edge0, edge1, x) {
-    const t = Math.min(Math.max((x - edge0) / (edge1 - edge0), 0), 1);
-    return t * t * (3 - 2 * t);
-}
-
-/**
  * Work out the image layout for a style.
  *
  * @param {ShadowStyle} style - How the shadow looks.
@@ -321,25 +310,31 @@ export function renderShadow(style, fixedMargin) {
         size,
     );
 
+    // The shadow reaches this far under the window, so it still lies below
+    // the window's antialiased edge. Further in it is transparent, which
+    // keeps it out of translucent windows.
+    const inset = 1;
+
     const alpha = Math.min(Math.max(style.opacity / 100, 0), 1);
     const pixels = new Uint8Array(size * size * 4);
     for (let y = 0; y < size; y++) {
         for (let x = 0; x < size; x++) {
             const i = y * size + x;
             const a = shadow[i] * alpha;
-            const c = roundedRectCoverage(x, y, x1, y1, x2, y2, radius);
+            const inside = roundedRectCoverage(
+                x,
+                y,
+                x1 + inset,
+                y1 + inset,
+                x2 - inset,
+                y2 - inset,
+                Math.max(radius - inset, 0),
+            );
 
-            // White box over the black shadow, premultiplied, then the old
-            // clip shader: color *= (1 - smoothstep(0.4, 1, gray)) * alpha.
-            const blendedAlpha = c + a * (1 - c);
-            const factor = (1 - smoothstep(0.4, 1, c)) * blendedAlpha;
-            const outAlpha = blendedAlpha * factor;
-            const outGray = outAlpha > 0 ? (c * factor) / outAlpha : 0;
-
-            pixels[i * 4] = Math.round(outGray * 255);
-            pixels[i * 4 + 1] = Math.round(outGray * 255);
-            pixels[i * 4 + 2] = Math.round(outGray * 255);
-            pixels[i * 4 + 3] = Math.round(Math.min(outAlpha, 1) * 255);
+            // Squared like the old clip shader did, which multiplied the
+            // shadow by its own alpha. Always black: the clip shader left
+            // the antialiased edge of its white box as light pixels.
+            pixels[i * 4 + 3] = Math.round(Math.min(a * a * (1 - inside), 1) * 255);
         }
     }
 
@@ -354,7 +349,7 @@ export function renderShadow(style, fixedMargin) {
  */
 export function shadowKey(style) {
     const text = JSON.stringify([
-        2, // Bump when the rendering changes.
+        3, // Bump when the rendering changes.
         style.radius,
         style.blur,
         style.spread,

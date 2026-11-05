@@ -23,6 +23,21 @@ test('the middle of the window box is transparent', () => {
     equal(alphaAt(image, mid, mid), 0);
 });
 
+test('the shadow is black, also at the edge of the window box', () => {
+    const image = renderShadow(FOCUSED);
+    for (let i = 0; i < image.pixels.length; i += 4) {
+        const rgb = image.pixels[i] + image.pixels[i + 1] + image.pixels[i + 2];
+        if (rgb) throw new Error(`light pixel at ${i / 4}`);
+    }
+});
+
+test('the shadow reaches one pixel under the window edge', () => {
+    const image = renderShadow({...FOCUSED, offsetY: 0});
+    const mid = Math.floor(image.width / 2);
+    ok(alphaAt(image, image.margin, mid) > 0, 'edge pixel');
+    equal(alphaAt(image, image.margin + 2, mid), 0, 'further in');
+});
+
 test('slices leave a one pixel middle to stretch', () => {
     const image = renderShadow(FOCUSED);
     equal(image.width, image.slice * 2 + 1);
