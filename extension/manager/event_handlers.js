@@ -271,10 +271,18 @@ function syncWobbly(state) {
     syncShadowVisible(state);
 }
 
-/** Keep every shadow actor directly below its window actor. */
+/**
+ * Keep every shadow actor directly below its window actor.
+ *
+ * Mutter restacks by lowering each window actor to the bottom in turn
+ * (sync_actor_stacking in compositor.c), which leaves all shadows above all
+ * windows. Hidden windows need their shadow put back too: Alt+Esc hides the
+ * selected window while it shows a clone, and nothing restacks when the
+ * window is shown again.
+ */
 export function onRestacked() {
     for (const {actor, shadow} of states.values()) {
-        if (!(shadow && actor.visible)) continue;
+        if (!shadow || shadow.get_parent() !== actor.get_parent()) continue;
         global.windowGroup.set_child_below_sibling(shadow, actor);
     }
 }

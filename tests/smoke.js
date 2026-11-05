@@ -116,6 +116,26 @@ export async function run() {
         await Scripting.sleep(650);
     }
 
+    // Alt+Esc hides the selected window and shows a clone of it instead
+    // (CyclerHighlight in altTab.js). A restack meanwhile puts every shadow
+    // above all windows; the hidden window's shadow has to go back below it.
+    actors[0].hide();
+    Main.activateWindow(actors[1].metaWindow);
+    await Scripting.sleep(200);
+    Main.activateWindow(actors[0].metaWindow);
+    await Scripting.sleep(200);
+    actors[0].show();
+    await Scripting.sleep(200);
+    const stackShot = GLib.getenv('RWC_TEST_STACK_SCREENSHOT');
+    if (stackShot) await screenshot(stackShot);
+    const stack = global.window_group.get_children();
+    for (const actor of actors) {
+        check(
+            stack.indexOf(states.get(actor).shadow) < stack.indexOf(actor),
+            'A shadow has to stay below its window after a restack',
+        );
+    }
+
     const window = actors[0].metaWindow;
     const state = states.get(actors[0]);
 
