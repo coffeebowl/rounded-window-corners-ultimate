@@ -45,6 +45,7 @@ pot:
 	xgettext --from-code=UTF-8 \
 		--output=po/$(UUID).pot \
 		--language=JavaScript \
+		--add-comments=Translators: \
 		--join-existing \
 		$$(find $(SRCDIR) -name '*.js' | sort)
 	for file in po/*.po; do \

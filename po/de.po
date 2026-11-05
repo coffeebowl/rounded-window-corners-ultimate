@@ -1,7 +1,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-04-13 15:46+0200\n"
+"POT-Creation-Date: 2026-11-05 22:13+0100\n"
 "PO-Revision-Date: 2023-04-18 06:49+0000\n"
 "Last-Translator: Jörn Weigend <das.jott@gmail.com>\n"
 "Language-Team: German <https://hosted.weblate.org/projects/rounded-window-"
@@ -12,322 +12,334 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
 "X-Generator: Weblate 4.17\n"
 
-#: src/preferences/pages/blacklist.ui:6 src/preferences/pages/blacklist.ui:10
-#, fuzzy
+#: extension/preferences/pages/blacklist.ui:6
+#: extension/preferences/pages/blacklist.ui:10
 msgid "Blacklist / Whitelist"
-msgstr "Ausschlüsse"
+msgstr "Ausschlüsse / Positivliste"
 
-#: src/preferences/pages/blacklist.ui:11
-#, fuzzy
+#: extension/preferences/pages/blacklist.ui:11
 msgid ""
 "Not all application can works well with rounded corners effects, add them to "
 "this list to disable effects."
 msgstr ""
-"Nicht alle Anwendungen funktionieren mit abgerundeten Ecken. Füge sie dieser "
-"Liste hinzu, um den Effekt zu deaktivieren.\n"
-"\n"
-"Ein Eintrag dieser Liste ist der Instanzname der WM_CLASS Eigenschaft eines "
-"Fensters. Du kannst Fenster auswählen, um sie direkt dieser Liste "
-"hinzuzufügen."
+"Nicht alle Anwendungen vertragen abgerundete Ecken. Für Anwendungen in "
+"dieser Liste ist der Effekt abgeschaltet."
 
-#: src/preferences/pages/blacklist.ui:14
-#, fuzzy
+#: extension/preferences/pages/blacklist.ui:14
 msgid "Use as Whitelist"
-msgstr "Ausschlüsse"
+msgstr "Als Positivliste verwenden"
 
-#: src/preferences/pages/blacklist.ui:15
+#: extension/preferences/pages/blacklist.ui:15
 msgid ""
 "When selected, instead of omitting certain windows, only allows certain "
 "windows."
-msgstr ""
+msgstr "Statt die aufgeführten Fenster auszulassen, werden nur sie abgerundet."
 
-#: src/preferences/pages/blacklist.ui:25 src/preferences/pages/custom.ui:19
-#, fuzzy
+#: extension/preferences/pages/blacklist.ui:25
+#: extension/preferences/pages/custom.ui:19
 msgid "Add window"
 msgstr "Fenster hinzufügen"
 
-#: src/preferences/pages/custom.ui:6 src/preferences/pages/custom.ui:10
+#: extension/preferences/pages/custom.ui:6
+#: extension/preferences/pages/custom.ui:10
 msgid "Custom"
 msgstr "Benutzerdefiniert"
 
-#: src/preferences/pages/custom.ui:11
-#, fuzzy
+#: extension/preferences/pages/custom.ui:11
 msgid "Set custom effect setting for each window class"
-msgstr "Aktiviere benutzerdefinierte Einstellungen für dieses Fenster"
+msgstr "Eigene Einstellungen pro Fensterklasse festlegen"
 
-#: src/preferences/pages/edit-shadow.ui:6
+#: extension/preferences/pages/edit-shadow.ui:6
 msgid "Edit shadows"
-msgstr ""
+msgstr "Schatten bearbeiten"
 
-#: src/preferences/pages/edit-shadow.ui:28
-#, fuzzy
+#: extension/preferences/pages/edit-shadow.ui:28
 msgid "Focused window"
 msgstr "Fokussiertes Fenster"
 
-#: src/preferences/pages/edit-shadow.ui:43
-#, fuzzy
+#: extension/preferences/pages/edit-shadow.ui:43
 msgid "Unfocused window"
-msgstr "Unfokussiertes Fenster"
+msgstr "Nicht fokussiertes Fenster"
 
-#: src/preferences/pages/edit-shadow.ui:66
-#, fuzzy
+#: extension/preferences/pages/edit-shadow.ui:66
 msgid "Focused shadow preferences"
-msgstr "Einstellungen zurücksetzen"
+msgstr "Schatten fokussierter Fenster"
 
-#: src/preferences/pages/edit-shadow.ui:69
-#: src/preferences/pages/edit-shadow.ui:209
-#, fuzzy
+#: extension/preferences/pages/edit-shadow.ui:69
+#: extension/preferences/pages/edit-shadow.ui:209
 msgid "Horizontal offset"
 msgstr "Horizontaler Versatz"
 
-#: src/preferences/pages/edit-shadow.ui:96
-#: src/preferences/pages/edit-shadow.ui:236
-#, fuzzy
+#: extension/preferences/pages/edit-shadow.ui:96
+#: extension/preferences/pages/edit-shadow.ui:236
 msgid "Vertical offset"
 msgstr "Vertikaler Versatz"
 
-#: src/preferences/pages/edit-shadow.ui:123
-#: src/preferences/pages/edit-shadow.ui:263
-#, fuzzy
+#: extension/preferences/pages/edit-shadow.ui:123
+#: extension/preferences/pages/edit-shadow.ui:263
 msgid "Blur radius"
-msgstr "Rahmenradius"
+msgstr "Unschärferadius"
 
-#: src/preferences/pages/edit-shadow.ui:150
-#: src/preferences/pages/edit-shadow.ui:290
-#, fuzzy
+#: extension/preferences/pages/edit-shadow.ui:150
+#: extension/preferences/pages/edit-shadow.ui:290
 msgid "Spread radius"
-msgstr "Streuradius"
+msgstr "Ausbreitung"
 
-#: src/preferences/pages/edit-shadow.ui:177
-#: src/preferences/pages/edit-shadow.ui:317
+#: extension/preferences/pages/edit-shadow.ui:177
+#: extension/preferences/pages/edit-shadow.ui:317
 msgid "Opacity"
 msgstr "Deckkraft"
 
-#: src/preferences/pages/edit-shadow.ui:206
-#, fuzzy
+#: extension/preferences/pages/edit-shadow.ui:206
 msgid "Unfocused shadow preferences"
-msgstr "Einstellungen zurücksetzen"
+msgstr "Schatten nicht fokussierter Fenster"
 
-#: src/preferences/pages/general.ui:6
+#: extension/preferences/pages/general.ui:6
 msgid "General"
 msgstr "Allgemein"
 
-#: src/preferences/pages/general.ui:10
+#: extension/preferences/pages/general.ui:10
 msgid "Applications"
 msgstr "Anwendungen"
 
-#: src/preferences/pages/general.ui:11
-#, fuzzy
+#: extension/preferences/pages/general.ui:11
 msgid ""
 "Some applications created with LibAdwaita or LibHandy already have rounded "
 "corners. You can enable those settings to avoid rounding their corners an "
 "extra time."
 msgstr ""
-"Manche Anwendungen, welche LibAdwaita oder LibHandy verwenden, habe bereits "
-"nativ abgerundete Ecken. Diese können durch diese Einstellungen ausgelassen "
-"werden"
+"Manche Anwendungen mit LibAdwaita oder LibHandy haben bereits abgerundete "
+"Ecken. Mit diesen Einstellungen werden sie nicht ein zweites Mal abgerundet."
 
-#: src/preferences/pages/general.ui:14
-#, fuzzy
+#: extension/preferences/pages/general.ui:14
 msgid "Skip LibAdwaita applications"
 msgstr "LibAdwaita-Anwendungen auslassen"
 
-#: src/preferences/pages/general.ui:19
-#, fuzzy
+#: extension/preferences/pages/general.ui:19
 msgid "Skip LibHandy applications"
 msgstr "LibHandy-Anwendungen auslassen"
 
-#: src/preferences/pages/general.ui:26
-#, fuzzy
+#: extension/preferences/pages/general.ui:26
 msgid "Global settings"
 msgstr "Globale Einstellungen"
 
-#: src/preferences/pages/general.ui:27
-#, fuzzy
+#: extension/preferences/pages/general.ui:27
 msgid "These settings will have an effect on all windows"
-msgstr "Diese Einstellungen versuchen auf alle Fenster angewendet zu werden"
+msgstr "Diese Einstellungen gelten für alle Fenster"
 
-#: src/preferences/pages/general.ui:30
-#, fuzzy
+#: extension/preferences/pages/general.ui:30
 msgid "Border width"
 msgstr "Rahmenbreite"
 
-#: src/preferences/pages/general.ui:57 src/preferences/pages/general.ui:65
-#: src/preferences/widgets/custom_settings_row.ts:20
-#, fuzzy
+#: extension/preferences/pages/general.ui:57
+#: extension/preferences/pages/general.ui:65
+#: extension/preferences/widgets/custom_settings_row.js:18
 msgid "Border color"
 msgstr "Rahmenfarbe"
 
-#: src/preferences/pages/general.ui:74
-#: src/preferences/widgets/custom_settings_row.ts:28
-#, fuzzy
+#: extension/preferences/pages/general.ui:74
+#: extension/preferences/widgets/custom_settings_row.js:26
 msgid "Corner radius"
-msgstr "Rahmenradius"
+msgstr "Eckenradius"
 
-#: src/preferences/pages/general.ui:101
-#: src/preferences/widgets/custom_settings_row.ts:38
-#, fuzzy
+#: extension/preferences/pages/general.ui:101
+#: extension/preferences/widgets/custom_settings_row.js:36
 msgid "Corner smoothing"
-msgstr "Kantenglättung"
+msgstr "Eckenglättung"
 
-#: src/preferences/pages/general.ui:127
-#, fuzzy
+#: extension/preferences/pages/general.ui:127
 msgid "Window shadow"
 msgstr "Fensterschatten"
 
-#: src/preferences/pages/general.ui:128
+#: extension/preferences/pages/general.ui:128
 msgid "Customize the shadow of the rounded corner window"
 msgstr "Passe den Schatten von Fenstern mit abgerundeten Ecken an"
 
-#: src/preferences/pages/general.ui:140
-#, fuzzy
+#: extension/preferences/pages/general.ui:140
 msgid "Keep shadows for maximized and fullscreen windows"
-msgstr "Zeige abgerundete Ecken im Vollbild"
+msgstr "Schatten für maximierte und Vollbild-Fenster behalten"
 
-#: src/preferences/pages/general.ui:145
-#, fuzzy
+#: extension/preferences/pages/general.ui:145
 msgid "Keep rounded corners for maximized windows"
-msgstr "Zeige abgerundete Ecken bei Maximierung"
+msgstr "Abgerundete Ecken für maximierte Fenster behalten"
 
-#: src/preferences/pages/general.ui:150
-#, fuzzy
+#: extension/preferences/pages/general.ui:150
 msgid "Keep rounded corners for fullscreen windows"
-msgstr "Zeige abgerundete Ecken im Vollbild"
+msgstr "Abgerundete Ecken für Vollbild-Fenster behalten"
 
-#: src/preferences/pages/general.ui:160
+#: extension/preferences/pages/general.ui:160
 msgid "Tweaks"
 msgstr "Optimierungen"
 
-#: src/preferences/pages/general.ui:163
-#, fuzzy
+#: extension/preferences/pages/general.ui:163
 msgid "Add rounded corners to Kitty Terminal on Wayland"
-msgstr ""
-"Versuche abgerundete Ecken dem Kitty Terminal unter Wayland hinzuzufügen"
+msgstr "Kitty-Terminal unter Wayland abrunden"
 
-#: src/preferences/pages/general.ui:164
+#: extension/preferences/pages/general.ui:164
 msgid "Adjust paddings for Kitty Terminal to correctly round its corners"
 msgstr ""
+"Passt die Abstände an, damit die Ecken von Kitty richtig abgerundet werden"
 
-#: src/preferences/pages/general.ui:171
+#: extension/preferences/pages/general.ui:171
 msgid "Debug"
 msgstr "Debug"
 
-#: src/preferences/pages/general.ui:174
-#, fuzzy
+#: extension/preferences/pages/general.ui:174
 msgid "Enable debug logs"
-msgstr "Logging aktivieren"
+msgstr "Debug-Ausgaben aktivieren"
 
-#: src/preferences/pages/general.ui:175
-#, fuzzy
+#: extension/preferences/pages/general.ui:175
 msgid ""
 "Run journalctl -o cat -f /usr/bin/gnome-shell in your terminal to see the log"
 msgstr ""
-"Führe <i>journalctl -o cat -f /usr/bin/gnome-shell</i> im Terminal aus, um "
-"die Logs zu betrachten"
+"Im Terminal journalctl -o cat -f /usr/bin/gnome-shell ausführen, um die "
+"Ausgaben zu sehen"
 
-#: src/preferences/pages/general.ui:184
-#, fuzzy
+#: extension/preferences/pages/general.ui:184
 msgid "Reset preferences"
 msgstr "Einstellungen zurücksetzen"
 
-#: src/preferences/pages/reset.ui:6
+#: extension/preferences/pages/reset.ui:6
 msgid "Reset settings"
-msgstr ""
+msgstr "Einstellungen zurücksetzen"
 
-#: src/preferences/pages/reset.ui:16
-#, fuzzy
+#: extension/preferences/pages/reset.ui:16
 msgid "Settings to reset"
-msgstr "Wähle aus, was zurückgesetzt werden soll"
+msgstr "Zurückzusetzende Einstellungen"
 
-#: src/preferences/pages/reset.ui:22
-#, fuzzy
+#: extension/preferences/pages/reset.ui:22
 msgid "Select all"
 msgstr "Alle auswählen"
 
-#: src/preferences/pages/reset.ui:39
+#: extension/preferences/pages/reset.ui:39
 msgid "Reset"
-msgstr ""
+msgstr "Zurücksetzen"
 
-#: src/preferences/pages/reset.ui:55
+#: extension/preferences/pages/reset.ui:55
 msgid "Reset these settings?"
-msgstr ""
+msgstr "Diese Einstellungen zurücksetzen?"
 
-#: src/preferences/pages/reset.ui:60
+#: extension/preferences/pages/reset.ui:60
 msgid "_Cancel"
-msgstr ""
+msgstr "_Abbrechen"
 
-#: src/preferences/pages/reset.ui:61
+#: extension/preferences/pages/reset.ui:61
 msgid "_Reset"
-msgstr ""
+msgstr "_Zurücksetzen"
 
-#: src/preferences/widgets/paddings-row.ui:12
+#: extension/preferences/widgets/paddings-row.ui:17
 msgid "Paddings"
 msgstr "Innenabstände"
 
-#: src/preferences/widgets/paddings-row.ui:25
+#: extension/preferences/widgets/paddings-row.ui:37
 msgid "Top"
 msgstr "Oben"
 
-#: src/preferences/widgets/paddings-row.ui:40
+#: extension/preferences/widgets/paddings-row.ui:64
 msgid "Bottom"
 msgstr "Unten"
 
-#: src/preferences/widgets/paddings-row.ui:55
+#: extension/preferences/widgets/paddings-row.ui:91
 msgid "Left"
 msgstr "Links"
 
-#: src/preferences/widgets/paddings-row.ui:70
+#: extension/preferences/widgets/paddings-row.ui:118
 msgid "Right"
 msgstr "Rechts"
 
-#: src/preferences/pages/blacklist.ts:62
-#, fuzzy
+#: extension/preferences/pages/blacklist.js:51
 msgid "Whitelist"
-msgstr "Ausschlüsse"
+msgstr "Positivliste"
 
-#: src/preferences/pages/blacklist.ts:63
+#: extension/preferences/pages/blacklist.js:52
 msgid "Blacklist"
 msgstr "Ausschlüsse"
 
-#: src/preferences/widgets/app_row.ts:34
-#, fuzzy
+#: extension/preferences/pages/reset.js:39
+msgid "Skip LibAdwaita Applications"
+msgstr "LibAdwaita-Anwendungen auslassen"
+
+#: extension/preferences/pages/reset.js:40
+msgid "Skip LibHandy Applications"
+msgstr "LibHandy-Anwendungen auslassen"
+
+#: extension/preferences/pages/reset.js:41
+msgid "Focus Window Shadow Style"
+msgstr "Schattenstil für fokussierte Fenster"
+
+#: extension/preferences/pages/reset.js:42
+msgid "Unfocus Window Shadow Style"
+msgstr "Schattenstil für unfokussierte Fenster"
+
+#: extension/preferences/pages/reset.js:44
+msgid "Keep Window Shadows when Maximized or Fullscreen"
+msgstr "Fensterschatten bei Maximierung oder Vollbild behalten"
+
+#: extension/preferences/pages/reset.js:46
+msgid "Border Width"
+msgstr "Rahmenbreite"
+
+#: extension/preferences/pages/reset.js:47
+msgid "Enable Log"
+msgstr "Debug-Ausgaben"
+
+#: extension/preferences/pages/reset.js:49
+msgid "Border Radius"
+msgstr "Rahmenradius"
+
+#: extension/preferences/pages/reset.js:50
+msgid "Border Color"
+msgstr "Rahmenfarbe"
+
+#: extension/preferences/pages/reset.js:51
+msgid "Padding"
+msgstr "Innenabstand"
+
+#: extension/preferences/pages/reset.js:53
+msgid "Keep Rounded Corners when Maximized or Fullscreen"
+msgstr "Zeige abgerundete Ecken im Vollbild oder bei Maximierung"
+
+#: extension/preferences/pages/reset.js:55
+msgid "Corner Smoothing"
+msgstr "Kantenglättung"
+
+#: extension/preferences/widgets/app_row.js:35
 msgid "Window class"
-msgstr "Fensterschatten"
+msgstr "Fensterklasse"
 
-#: src/preferences/widgets/app_row.ts:55
-#, fuzzy
+#: extension/preferences/widgets/app_row.js:56
 msgid "Expand this row, to pick a window"
-msgstr "Eintrag aufklappen, um ein Fenster auszuwählen."
+msgstr "Eintrag aufklappen, um ein Fenster auszuwählen"
 
-#: src/preferences/widgets/app_row.ts:95
-#, fuzzy
+#. Translators: %s is a window class.
+#: extension/preferences/widgets/app_row.js:81
+#, javascript-format
+msgid "%s is already in the list"
+msgstr "%s ist bereits in der Liste"
+
+#: extension/preferences/widgets/app_row.js:94
 msgid "Can't pick window from this position"
-msgstr "Kann kein Fenster von dieser Position auswählen"
+msgstr "An dieser Stelle lässt sich kein Fenster auswählen"
 
-#: src/preferences/widgets/custom_settings_row.ts:16
-#, fuzzy
+#: extension/preferences/widgets/custom_settings_row.js:14
 msgid "Enabled"
-msgstr "Aktivieren"
+msgstr "Aktiviert"
 
-#: src/preferences/widgets/custom_settings_row.ts:48
-#, fuzzy
+#: extension/preferences/widgets/custom_settings_row.js:46
 msgid "Keep rounded corners when maximized"
-msgstr "Zeige abgerundete Ecken bei Maximierung"
+msgstr "Abgerundete Ecken bei Maximierung behalten"
 
-#: src/preferences/widgets/custom_settings_row.ts:50
-#, fuzzy
+#: extension/preferences/widgets/custom_settings_row.js:48
 msgid "Always clip rounded corners even if window is maximized or tiled"
-msgstr "Abgerundete Ecken für maximierte order geteilte Fenster behalten."
+msgstr "Ecken auch abrunden, wenn das Fenster maximiert oder angeordnet ist"
 
-#: src/preferences/widgets/custom_settings_row.ts:54
-#, fuzzy
+#: extension/preferences/widgets/custom_settings_row.js:52
 msgid "Keep rounded corners when in fullscreen"
-msgstr "Zeige abgerundete Ecken im Vollbild"
+msgstr "Abgerundete Ecken im Vollbild behalten"
 
-#: src/preferences/widgets/custom_settings_row.ts:55
-#, fuzzy
+#: extension/preferences/widgets/custom_settings_row.js:53
 msgid "Always clip rounded corners even for fullscreen window"
-msgstr "Abgerundete Ecken für Fenster im Vollbildmodus behalten."
+msgstr "Ecken auch im Vollbild abrunden"
 
 #~ msgid "Rounded Corners Settings..."
 #~ msgstr "Einstellungen für abgerundete Ecken..."
@@ -342,36 +354,6 @@ msgstr "Abgerundete Ecken für Fenster im Vollbildmodus behalten."
 #, fuzzy
 #~ msgid "Open prefereces reset page"
 #~ msgstr "Zurücksetzungsoptionen anzeigen"
-
-#~ msgid "Skip LibAdwaita Applications"
-#~ msgstr "LibAdwaita-Anwendungen auslassen"
-
-#~ msgid "Skip LibHandy Applications"
-#~ msgstr "LibHandy-Anwendungen auslassen"
-
-#~ msgid "Focus Window Shadow Style"
-#~ msgstr "Schattenstil für fokussierte Fenster"
-
-#~ msgid "Unfocus Window Shadow Style"
-#~ msgstr "Schattenstil für unfokussierte Fenster"
-
-#~ msgid "Border Width"
-#~ msgstr "Rahmenbreite"
-
-#~ msgid "Border Color"
-#~ msgstr "Rahmenfarbe"
-
-#~ msgid "Border Radius"
-#~ msgstr "Rahmenradius"
-
-#~ msgid "Padding"
-#~ msgstr "Innenabstand"
-
-#~ msgid "Keep Rounded Corners when Maximized or Fullscreen"
-#~ msgstr "Zeige abgerundete Ecken im Vollbild oder bei Maximierung"
-
-#~ msgid "Corner Smoothing"
-#~ msgstr "Kantenglättung"
 
 #~ msgid "Expand this row to pick a window."
 #~ msgstr "Eintrag aufklappen, um ein Fenster auszuwählen."

@@ -1,7 +1,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-04-13 15:46+0200\n"
+"POT-Creation-Date: 2026-11-05 22:13+0100\n"
 "PO-Revision-Date: 2023-03-21 15:37+0000\n"
 "Last-Translator: maboroshin <maboroshin@users.noreply.hosted.weblate.org>\n"
 "Language-Team: Japanese <https://hosted.weblate.org/projects/rounded-window-"
@@ -12,12 +12,13 @@ msgstr ""
 "Plural-Forms: nplurals=1; plural=0;\n"
 "X-Generator: Weblate 4.16.2-dev\n"
 
-#: src/preferences/pages/blacklist.ui:6 src/preferences/pages/blacklist.ui:10
+#: extension/preferences/pages/blacklist.ui:6
+#: extension/preferences/pages/blacklist.ui:10
 #, fuzzy
 msgid "Blacklist / Whitelist"
 msgstr "ブラックリスト"
 
-#: src/preferences/pages/blacklist.ui:11
+#: extension/preferences/pages/blacklist.ui:11
 #, fuzzy
 msgid ""
 "Not all application can works well with rounded corners effects, add them to "
@@ -29,91 +30,93 @@ msgstr ""
 "一覧の項目は、ウィンドウの WM_CLASS プロパティのインスタンス部分です。一覧に"
 "これを追加するウィンドウを選択できます。"
 
-#: src/preferences/pages/blacklist.ui:14
+#: extension/preferences/pages/blacklist.ui:14
 #, fuzzy
 msgid "Use as Whitelist"
 msgstr "ブラックリスト"
 
-#: src/preferences/pages/blacklist.ui:15
+#: extension/preferences/pages/blacklist.ui:15
 msgid ""
 "When selected, instead of omitting certain windows, only allows certain "
 "windows."
 msgstr ""
 
-#: src/preferences/pages/blacklist.ui:25 src/preferences/pages/custom.ui:19
+#: extension/preferences/pages/blacklist.ui:25
+#: extension/preferences/pages/custom.ui:19
 #, fuzzy
 msgid "Add window"
 msgstr "ウィンドウ追加"
 
-#: src/preferences/pages/custom.ui:6 src/preferences/pages/custom.ui:10
+#: extension/preferences/pages/custom.ui:6
+#: extension/preferences/pages/custom.ui:10
 msgid "Custom"
 msgstr "カスタマイズ"
 
-#: src/preferences/pages/custom.ui:11
+#: extension/preferences/pages/custom.ui:11
 #, fuzzy
 msgid "Set custom effect setting for each window class"
 msgstr "このウィンドウの独自設定を有効化"
 
-#: src/preferences/pages/edit-shadow.ui:6
+#: extension/preferences/pages/edit-shadow.ui:6
 msgid "Edit shadows"
 msgstr ""
 
-#: src/preferences/pages/edit-shadow.ui:28
+#: extension/preferences/pages/edit-shadow.ui:28
 msgid "Focused window"
 msgstr ""
 
-#: src/preferences/pages/edit-shadow.ui:43
+#: extension/preferences/pages/edit-shadow.ui:43
 msgid "Unfocused window"
 msgstr ""
 
-#: src/preferences/pages/edit-shadow.ui:66
+#: extension/preferences/pages/edit-shadow.ui:66
 #, fuzzy
 msgid "Focused shadow preferences"
 msgstr "設定を初期化"
 
-#: src/preferences/pages/edit-shadow.ui:69
-#: src/preferences/pages/edit-shadow.ui:209
+#: extension/preferences/pages/edit-shadow.ui:69
+#: extension/preferences/pages/edit-shadow.ui:209
 #, fuzzy
 msgid "Horizontal offset"
 msgstr "水平 補正"
 
-#: src/preferences/pages/edit-shadow.ui:96
-#: src/preferences/pages/edit-shadow.ui:236
+#: extension/preferences/pages/edit-shadow.ui:96
+#: extension/preferences/pages/edit-shadow.ui:236
 #, fuzzy
 msgid "Vertical offset"
 msgstr "垂直 補正"
 
-#: src/preferences/pages/edit-shadow.ui:123
-#: src/preferences/pages/edit-shadow.ui:263
+#: extension/preferences/pages/edit-shadow.ui:123
+#: extension/preferences/pages/edit-shadow.ui:263
 #, fuzzy
 msgid "Blur radius"
 msgstr "境界線の角丸サイズ"
 
-#: src/preferences/pages/edit-shadow.ui:150
-#: src/preferences/pages/edit-shadow.ui:290
+#: extension/preferences/pages/edit-shadow.ui:150
+#: extension/preferences/pages/edit-shadow.ui:290
 #, fuzzy
 msgid "Spread radius"
 msgstr "境界線の角丸サイズ"
 
-#: src/preferences/pages/edit-shadow.ui:177
-#: src/preferences/pages/edit-shadow.ui:317
+#: extension/preferences/pages/edit-shadow.ui:177
+#: extension/preferences/pages/edit-shadow.ui:317
 msgid "Opacity"
 msgstr "不透明度"
 
-#: src/preferences/pages/edit-shadow.ui:206
+#: extension/preferences/pages/edit-shadow.ui:206
 #, fuzzy
 msgid "Unfocused shadow preferences"
 msgstr "設定を初期化"
 
-#: src/preferences/pages/general.ui:6
+#: extension/preferences/pages/general.ui:6
 msgid "General"
 msgstr "一般"
 
-#: src/preferences/pages/general.ui:10
+#: extension/preferences/pages/general.ui:10
 msgid "Applications"
 msgstr "アプリケーション"
 
-#: src/preferences/pages/general.ui:11
+#: extension/preferences/pages/general.ui:11
 #, fuzzy
 msgid ""
 "Some applications created with LibAdwaita or LibHandy already have rounded "
@@ -123,95 +126,96 @@ msgstr ""
 "LibAdwaita や LibHandy を使ったアプリには、すでに角丸なものがあるので、この設"
 "定で無視することができます"
 
-#: src/preferences/pages/general.ui:14
+#: extension/preferences/pages/general.ui:14
 #, fuzzy
 msgid "Skip LibAdwaita applications"
 msgstr "LibAdwaita のアプリは無視"
 
-#: src/preferences/pages/general.ui:19
+#: extension/preferences/pages/general.ui:19
 #, fuzzy
 msgid "Skip LibHandy applications"
 msgstr "LibHandy のアプリは無視"
 
-#: src/preferences/pages/general.ui:26
+#: extension/preferences/pages/general.ui:26
 #, fuzzy
 msgid "Global settings"
 msgstr "全般設定"
 
-#: src/preferences/pages/general.ui:27
+#: extension/preferences/pages/general.ui:27
 #, fuzzy
 msgid "These settings will have an effect on all windows"
 msgstr "この設定はすべてのウィンドウへの効果を試みます"
 
-#: src/preferences/pages/general.ui:30
+#: extension/preferences/pages/general.ui:30
 #, fuzzy
 msgid "Border width"
 msgstr "境界線の幅"
 
-#: src/preferences/pages/general.ui:57 src/preferences/pages/general.ui:65
-#: src/preferences/widgets/custom_settings_row.ts:20
+#: extension/preferences/pages/general.ui:57
+#: extension/preferences/pages/general.ui:65
+#: extension/preferences/widgets/custom_settings_row.js:18
 #, fuzzy
 msgid "Border color"
 msgstr "境界線の色"
 
-#: src/preferences/pages/general.ui:74
-#: src/preferences/widgets/custom_settings_row.ts:28
+#: extension/preferences/pages/general.ui:74
+#: extension/preferences/widgets/custom_settings_row.js:26
 #, fuzzy
 msgid "Corner radius"
 msgstr "境界線の角丸サイズ"
 
-#: src/preferences/pages/general.ui:101
-#: src/preferences/widgets/custom_settings_row.ts:38
+#: extension/preferences/pages/general.ui:101
+#: extension/preferences/widgets/custom_settings_row.js:36
 #, fuzzy
 msgid "Corner smoothing"
 msgstr "角を滑らかに"
 
-#: src/preferences/pages/general.ui:127
+#: extension/preferences/pages/general.ui:127
 #, fuzzy
 msgid "Window shadow"
 msgstr "ウィンドウの影"
 
-#: src/preferences/pages/general.ui:128
+#: extension/preferences/pages/general.ui:128
 msgid "Customize the shadow of the rounded corner window"
 msgstr "角丸ウィンドウの影を指定"
 
-#: src/preferences/pages/general.ui:140
+#: extension/preferences/pages/general.ui:140
 #, fuzzy
 msgid "Keep shadows for maximized and fullscreen windows"
 msgstr "全画面時に角丸を維持"
 
-#: src/preferences/pages/general.ui:145
+#: extension/preferences/pages/general.ui:145
 #, fuzzy
 msgid "Keep rounded corners for maximized windows"
 msgstr "最大化時に角丸を維持"
 
-#: src/preferences/pages/general.ui:150
+#: extension/preferences/pages/general.ui:150
 #, fuzzy
 msgid "Keep rounded corners for fullscreen windows"
 msgstr "全画面時に角丸を維持"
 
-#: src/preferences/pages/general.ui:160
+#: extension/preferences/pages/general.ui:160
 msgid "Tweaks"
 msgstr ""
 
-#: src/preferences/pages/general.ui:163
+#: extension/preferences/pages/general.ui:163
 msgid "Add rounded corners to Kitty Terminal on Wayland"
 msgstr ""
 
-#: src/preferences/pages/general.ui:164
+#: extension/preferences/pages/general.ui:164
 msgid "Adjust paddings for Kitty Terminal to correctly round its corners"
 msgstr ""
 
-#: src/preferences/pages/general.ui:171
+#: extension/preferences/pages/general.ui:171
 msgid "Debug"
 msgstr "デバッグ"
 
-#: src/preferences/pages/general.ui:174
+#: extension/preferences/pages/general.ui:174
 #, fuzzy
 msgid "Enable debug logs"
 msgstr "ログを有効化"
 
-#: src/preferences/pages/general.ui:175
+#: extension/preferences/pages/general.ui:175
 #, fuzzy
 msgid ""
 "Run journalctl -o cat -f /usr/bin/gnome-shell in your terminal to see the log"
@@ -219,106 +223,164 @@ msgstr ""
 "ログ閲覧にはターミナルで <i>journalctl -o cat -f /usr/bin/gnome-shell</i> を"
 "実行"
 
-#: src/preferences/pages/general.ui:184
+#: extension/preferences/pages/general.ui:184
 #, fuzzy
 msgid "Reset preferences"
 msgstr "設定を初期化"
 
-#: src/preferences/pages/reset.ui:6
+#: extension/preferences/pages/reset.ui:6
 msgid "Reset settings"
 msgstr ""
 
-#: src/preferences/pages/reset.ui:16
+#: extension/preferences/pages/reset.ui:16
 #, fuzzy
 msgid "Settings to reset"
 msgstr "初期化する項目を選択"
 
-#: src/preferences/pages/reset.ui:22
+#: extension/preferences/pages/reset.ui:22
 #, fuzzy
 msgid "Select all"
 msgstr "すべて選択"
 
-#: src/preferences/pages/reset.ui:39
+#: extension/preferences/pages/reset.ui:39
 msgid "Reset"
 msgstr ""
 
-#: src/preferences/pages/reset.ui:55
+#: extension/preferences/pages/reset.ui:55
 msgid "Reset these settings?"
 msgstr ""
 
-#: src/preferences/pages/reset.ui:60
+#: extension/preferences/pages/reset.ui:60
 msgid "_Cancel"
 msgstr ""
 
-#: src/preferences/pages/reset.ui:61
+#: extension/preferences/pages/reset.ui:61
 msgid "_Reset"
 msgstr ""
 
-#: src/preferences/widgets/paddings-row.ui:12
+#: extension/preferences/widgets/paddings-row.ui:17
 msgid "Paddings"
 msgstr ""
 
-#: src/preferences/widgets/paddings-row.ui:25
+#: extension/preferences/widgets/paddings-row.ui:37
 msgid "Top"
 msgstr "上"
 
-#: src/preferences/widgets/paddings-row.ui:40
+#: extension/preferences/widgets/paddings-row.ui:64
 msgid "Bottom"
 msgstr "下"
 
-#: src/preferences/widgets/paddings-row.ui:55
+#: extension/preferences/widgets/paddings-row.ui:91
 msgid "Left"
 msgstr "左"
 
-#: src/preferences/widgets/paddings-row.ui:70
+#: extension/preferences/widgets/paddings-row.ui:118
 msgid "Right"
 msgstr "右"
 
-#: src/preferences/pages/blacklist.ts:62
+#: extension/preferences/pages/blacklist.js:51
 #, fuzzy
 msgid "Whitelist"
 msgstr "ブラックリスト"
 
-#: src/preferences/pages/blacklist.ts:63
+#: extension/preferences/pages/blacklist.js:52
 msgid "Blacklist"
 msgstr "ブラックリスト"
 
-#: src/preferences/widgets/app_row.ts:34
+#: extension/preferences/pages/reset.js:39
+msgid "Skip LibAdwaita Applications"
+msgstr "LibAdwaita のアプリは無視"
+
+#: extension/preferences/pages/reset.js:40
+msgid "Skip LibHandy Applications"
+msgstr "LibHandy のアプリは無視"
+
+#: extension/preferences/pages/reset.js:41
+#, fuzzy
+msgid "Focus Window Shadow Style"
+msgstr "ウィンドウの影"
+
+#: extension/preferences/pages/reset.js:42
+#, fuzzy
+msgid "Unfocus Window Shadow Style"
+msgstr "ウィンドウの影"
+
+#: extension/preferences/pages/reset.js:44
+#, fuzzy
+msgid "Keep Window Shadows when Maximized or Fullscreen"
+msgstr "最大化や全画面時に角丸を維持"
+
+#: extension/preferences/pages/reset.js:46
+msgid "Border Width"
+msgstr "境界線の幅"
+
+#: extension/preferences/pages/reset.js:47
+#, fuzzy
+msgid "Enable Log"
+msgstr "有効化"
+
+#: extension/preferences/pages/reset.js:49
+msgid "Border Radius"
+msgstr "境界線の角丸サイズ"
+
+#: extension/preferences/pages/reset.js:50
+msgid "Border Color"
+msgstr "境界線の色"
+
+#: extension/preferences/pages/reset.js:51
+msgid "Padding"
+msgstr ""
+
+#: extension/preferences/pages/reset.js:53
+msgid "Keep Rounded Corners when Maximized or Fullscreen"
+msgstr "最大化や全画面時に角丸を維持"
+
+#: extension/preferences/pages/reset.js:55
+msgid "Corner Smoothing"
+msgstr "角を滑らかに"
+
+#: extension/preferences/widgets/app_row.js:35
 #, fuzzy
 msgid "Window class"
 msgstr "ウィンドウの影"
 
-#: src/preferences/widgets/app_row.ts:55
+#: extension/preferences/widgets/app_row.js:56
 #, fuzzy
 msgid "Expand this row, to pick a window"
 msgstr "この行を展開しウィンドウを選択。"
 
-#: src/preferences/widgets/app_row.ts:95
+#. Translators: %s is a window class.
+#: extension/preferences/widgets/app_row.js:81
+#, javascript-format
+msgid "%s is already in the list"
+msgstr ""
+
+#: extension/preferences/widgets/app_row.js:94
 #, fuzzy
 msgid "Can't pick window from this position"
 msgstr "この位置からウィンドウを選択できません"
 
-#: src/preferences/widgets/custom_settings_row.ts:16
+#: extension/preferences/widgets/custom_settings_row.js:14
 #, fuzzy
 msgid "Enabled"
 msgstr "有効化"
 
-#: src/preferences/widgets/custom_settings_row.ts:48
+#: extension/preferences/widgets/custom_settings_row.js:46
 #, fuzzy
 msgid "Keep rounded corners when maximized"
 msgstr "最大化時に角丸を維持"
 
-#: src/preferences/widgets/custom_settings_row.ts:50
+#: extension/preferences/widgets/custom_settings_row.js:48
 #, fuzzy
 msgid "Always clip rounded corners even if window is maximized or tiled"
 msgstr "ウィンドウの最大化や並べて表示でも角丸を維持。"
 
-#: src/preferences/widgets/custom_settings_row.ts:54
+#: extension/preferences/widgets/custom_settings_row.js:52
 #, fuzzy
 msgid "Keep rounded corners when in fullscreen"
 msgstr "全画面時に角丸を維持"
 
-#: src/preferences/widgets/custom_settings_row.ts:55
+#: extension/preferences/widgets/custom_settings_row.js:53
 #, fuzzy
 msgid "Always clip rounded corners even for fullscreen window"
 msgstr "全画面時でも角丸を維持。"
@@ -333,27 +395,6 @@ msgstr "全画面時でも角丸を維持。"
 #, fuzzy
 #~ msgid "Open prefereces reset page"
 #~ msgstr "設定初期化のダイアログを開く"
-
-#~ msgid "Skip LibAdwaita Applications"
-#~ msgstr "LibAdwaita のアプリは無視"
-
-#~ msgid "Skip LibHandy Applications"
-#~ msgstr "LibHandy のアプリは無視"
-
-#~ msgid "Border Width"
-#~ msgstr "境界線の幅"
-
-#~ msgid "Border Color"
-#~ msgstr "境界線の色"
-
-#~ msgid "Border Radius"
-#~ msgstr "境界線の角丸サイズ"
-
-#~ msgid "Keep Rounded Corners when Maximized or Fullscreen"
-#~ msgstr "最大化や全画面時に角丸を維持"
-
-#~ msgid "Corner Smoothing"
-#~ msgstr "角を滑らかに"
 
 #~ msgid "Expand this row to pick a window."
 #~ msgstr "この行を展開しウィンドウを選択。"

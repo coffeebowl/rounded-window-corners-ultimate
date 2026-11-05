@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: 12\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-04-13 15:46+0200\n"
+"POT-Creation-Date: 2026-11-05 22:13+0100\n"
 "PO-Revision-Date: 2023-12-21 14:06+0000\n"
 "Last-Translator: ssantos <ssantos@web.de>\n"
 "Language-Team: Portuguese <https://hosted.weblate.org/projects/rounded-"
@@ -13,12 +13,13 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=n > 1;\n"
 "X-Generator: Weblate 5.4-dev\n"
 
-#: src/preferences/pages/blacklist.ui:6 src/preferences/pages/blacklist.ui:10
+#: extension/preferences/pages/blacklist.ui:6
+#: extension/preferences/pages/blacklist.ui:10
 #, fuzzy
 msgid "Blacklist / Whitelist"
 msgstr "Lista negra"
 
-#: src/preferences/pages/blacklist.ui:11
+#: extension/preferences/pages/blacklist.ui:11
 #, fuzzy
 msgid ""
 "Not all application can works well with rounded corners effects, add them to "
@@ -30,93 +31,95 @@ msgstr ""
 "O item da lista é uma parte da propriedade WM_CLASS da janela. Pode "
 "selecionar uma janela para adicioná-la a esta lista."
 
-#: src/preferences/pages/blacklist.ui:14
+#: extension/preferences/pages/blacklist.ui:14
 #, fuzzy
 msgid "Use as Whitelist"
 msgstr "Lista negra"
 
-#: src/preferences/pages/blacklist.ui:15
+#: extension/preferences/pages/blacklist.ui:15
 msgid ""
 "When selected, instead of omitting certain windows, only allows certain "
 "windows."
 msgstr ""
 
-#: src/preferences/pages/blacklist.ui:25 src/preferences/pages/custom.ui:19
+#: extension/preferences/pages/blacklist.ui:25
+#: extension/preferences/pages/custom.ui:19
 #, fuzzy
 msgid "Add window"
 msgstr "Adicionar janela"
 
-#: src/preferences/pages/custom.ui:6 src/preferences/pages/custom.ui:10
+#: extension/preferences/pages/custom.ui:6
+#: extension/preferences/pages/custom.ui:10
 msgid "Custom"
 msgstr "Personalizado"
 
-#: src/preferences/pages/custom.ui:11
+#: extension/preferences/pages/custom.ui:11
 #, fuzzy
 msgid "Set custom effect setting for each window class"
 msgstr "Ativar customizações nesta janela"
 
-#: src/preferences/pages/edit-shadow.ui:6
+#: extension/preferences/pages/edit-shadow.ui:6
 msgid "Edit shadows"
 msgstr ""
 
-#: src/preferences/pages/edit-shadow.ui:28
+#: extension/preferences/pages/edit-shadow.ui:28
 #, fuzzy
 msgid "Focused window"
 msgstr "Janela Focada"
 
-#: src/preferences/pages/edit-shadow.ui:43
+#: extension/preferences/pages/edit-shadow.ui:43
 #, fuzzy
 msgid "Unfocused window"
 msgstr "Janela Desfocada"
 
-#: src/preferences/pages/edit-shadow.ui:66
+#: extension/preferences/pages/edit-shadow.ui:66
 #, fuzzy
 msgid "Focused shadow preferences"
 msgstr "Redefinir Preferências"
 
-#: src/preferences/pages/edit-shadow.ui:69
-#: src/preferences/pages/edit-shadow.ui:209
+#: extension/preferences/pages/edit-shadow.ui:69
+#: extension/preferences/pages/edit-shadow.ui:209
 #, fuzzy
 msgid "Horizontal offset"
 msgstr "Deslocamento horizontal"
 
-#: src/preferences/pages/edit-shadow.ui:96
-#: src/preferences/pages/edit-shadow.ui:236
+#: extension/preferences/pages/edit-shadow.ui:96
+#: extension/preferences/pages/edit-shadow.ui:236
 #, fuzzy
 msgid "Vertical offset"
 msgstr "Deslocamento vertical"
 
-#: src/preferences/pages/edit-shadow.ui:123
-#: src/preferences/pages/edit-shadow.ui:263
+#: extension/preferences/pages/edit-shadow.ui:123
+#: extension/preferences/pages/edit-shadow.ui:263
 #, fuzzy
 msgid "Blur radius"
 msgstr "Raio da Borda"
 
-#: src/preferences/pages/edit-shadow.ui:150
-#: src/preferences/pages/edit-shadow.ui:290
+#: extension/preferences/pages/edit-shadow.ui:150
+#: extension/preferences/pages/edit-shadow.ui:290
 #, fuzzy
 msgid "Spread radius"
 msgstr "Raio de Expansão"
 
-#: src/preferences/pages/edit-shadow.ui:177
-#: src/preferences/pages/edit-shadow.ui:317
+#: extension/preferences/pages/edit-shadow.ui:177
+#: extension/preferences/pages/edit-shadow.ui:317
 msgid "Opacity"
 msgstr "Opacidade"
 
-#: src/preferences/pages/edit-shadow.ui:206
+#: extension/preferences/pages/edit-shadow.ui:206
 #, fuzzy
 msgid "Unfocused shadow preferences"
 msgstr "Redefinir Preferências"
 
-#: src/preferences/pages/general.ui:6
+#: extension/preferences/pages/general.ui:6
 msgid "General"
 msgstr "Geral"
 
-#: src/preferences/pages/general.ui:10
+#: extension/preferences/pages/general.ui:10
 msgid "Applications"
 msgstr "Aplicações"
 
-#: src/preferences/pages/general.ui:11
+#: extension/preferences/pages/general.ui:11
 #, fuzzy
 msgid ""
 "Some applications created with LibAdwaita or LibHandy already have rounded "
@@ -126,96 +129,97 @@ msgstr ""
 "Algumas aplicações escritas usando LibAdwaita ou LibHandy já possuem cantos "
 "arredondados nativos, então podemos ignorá-los através dessas configurações"
 
-#: src/preferences/pages/general.ui:14
+#: extension/preferences/pages/general.ui:14
 #, fuzzy
 msgid "Skip LibAdwaita applications"
 msgstr "Ignorar Aplicaçõs Usando LibAdwaita"
 
-#: src/preferences/pages/general.ui:19
+#: extension/preferences/pages/general.ui:19
 #, fuzzy
 msgid "Skip LibHandy applications"
 msgstr "Ignorar Aplicações Usando LibHandy"
 
-#: src/preferences/pages/general.ui:26
+#: extension/preferences/pages/general.ui:26
 #, fuzzy
 msgid "Global settings"
 msgstr "Configurações Globais"
 
-#: src/preferences/pages/general.ui:27
+#: extension/preferences/pages/general.ui:27
 #, fuzzy
 msgid "These settings will have an effect on all windows"
 msgstr "Estas configurações tentarão afetar todas as janelas"
 
-#: src/preferences/pages/general.ui:30
+#: extension/preferences/pages/general.ui:30
 #, fuzzy
 msgid "Border width"
 msgstr "Largura da Borda"
 
-#: src/preferences/pages/general.ui:57 src/preferences/pages/general.ui:65
-#: src/preferences/widgets/custom_settings_row.ts:20
+#: extension/preferences/pages/general.ui:57
+#: extension/preferences/pages/general.ui:65
+#: extension/preferences/widgets/custom_settings_row.js:18
 #, fuzzy
 msgid "Border color"
 msgstr "Cor da Borda"
 
-#: src/preferences/pages/general.ui:74
-#: src/preferences/widgets/custom_settings_row.ts:28
+#: extension/preferences/pages/general.ui:74
+#: extension/preferences/widgets/custom_settings_row.js:26
 #, fuzzy
 msgid "Corner radius"
 msgstr "Raio da Borda"
 
-#: src/preferences/pages/general.ui:101
-#: src/preferences/widgets/custom_settings_row.ts:38
+#: extension/preferences/pages/general.ui:101
+#: extension/preferences/widgets/custom_settings_row.js:36
 #, fuzzy
 msgid "Corner smoothing"
 msgstr "Suavização dos Cantos"
 
-#: src/preferences/pages/general.ui:127
+#: extension/preferences/pages/general.ui:127
 #, fuzzy
 msgid "Window shadow"
 msgstr "Sombra da janela"
 
-#: src/preferences/pages/general.ui:128
+#: extension/preferences/pages/general.ui:128
 msgid "Customize the shadow of the rounded corner window"
 msgstr "Personalize a sombra dos cantos da janela"
 
-#: src/preferences/pages/general.ui:140
+#: extension/preferences/pages/general.ui:140
 #, fuzzy
 msgid "Keep shadows for maximized and fullscreen windows"
 msgstr "Manter Cantos Arredondados em Ecrã Inteiro"
 
-#: src/preferences/pages/general.ui:145
+#: extension/preferences/pages/general.ui:145
 #, fuzzy
 msgid "Keep rounded corners for maximized windows"
 msgstr "Manter Cantos Arredondados ao Maximizar"
 
-#: src/preferences/pages/general.ui:150
+#: extension/preferences/pages/general.ui:150
 #, fuzzy
 msgid "Keep rounded corners for fullscreen windows"
 msgstr "Manter Cantos Arredondados em Ecrã Inteiro"
 
-#: src/preferences/pages/general.ui:160
+#: extension/preferences/pages/general.ui:160
 msgid "Tweaks"
 msgstr "Ajustes"
 
-#: src/preferences/pages/general.ui:163
+#: extension/preferences/pages/general.ui:163
 #, fuzzy
 msgid "Add rounded corners to Kitty Terminal on Wayland"
 msgstr "Tente adicionar cantos arredondados ao Terminal Kitty em Wayland"
 
-#: src/preferences/pages/general.ui:164
+#: extension/preferences/pages/general.ui:164
 msgid "Adjust paddings for Kitty Terminal to correctly round its corners"
 msgstr ""
 
-#: src/preferences/pages/general.ui:171
+#: extension/preferences/pages/general.ui:171
 msgid "Debug"
 msgstr "Debug"
 
-#: src/preferences/pages/general.ui:174
+#: extension/preferences/pages/general.ui:174
 #, fuzzy
 msgid "Enable debug logs"
 msgstr "Ativar Log"
 
-#: src/preferences/pages/general.ui:175
+#: extension/preferences/pages/general.ui:175
 #, fuzzy
 msgid ""
 "Run journalctl -o cat -f /usr/bin/gnome-shell in your terminal to see the log"
@@ -223,108 +227,164 @@ msgstr ""
 "Execute <i>journalctl -o cat -f /usr/bin/gnome-shell</i> no terminal para "
 "ver o log"
 
-#: src/preferences/pages/general.ui:184
+#: extension/preferences/pages/general.ui:184
 #, fuzzy
 msgid "Reset preferences"
 msgstr "Redefinir Preferências"
 
-#: src/preferences/pages/reset.ui:6
+#: extension/preferences/pages/reset.ui:6
 msgid "Reset settings"
 msgstr ""
 
-#: src/preferences/pages/reset.ui:16
+#: extension/preferences/pages/reset.ui:16
 #, fuzzy
 msgid "Settings to reset"
 msgstr "Selecionar Itens para Redefinir"
 
-#: src/preferences/pages/reset.ui:22
+#: extension/preferences/pages/reset.ui:22
 #, fuzzy
 msgid "Select all"
 msgstr "Selecionar tudo"
 
-#: src/preferences/pages/reset.ui:39
+#: extension/preferences/pages/reset.ui:39
 msgid "Reset"
 msgstr ""
 
-#: src/preferences/pages/reset.ui:55
+#: extension/preferences/pages/reset.ui:55
 msgid "Reset these settings?"
 msgstr ""
 
-#: src/preferences/pages/reset.ui:60
+#: extension/preferences/pages/reset.ui:60
 msgid "_Cancel"
 msgstr ""
 
-#: src/preferences/pages/reset.ui:61
+#: extension/preferences/pages/reset.ui:61
 msgid "_Reset"
 msgstr ""
 
-#: src/preferences/widgets/paddings-row.ui:12
+#: extension/preferences/widgets/paddings-row.ui:17
 msgid "Paddings"
 msgstr "Margens"
 
-#: src/preferences/widgets/paddings-row.ui:25
+#: extension/preferences/widgets/paddings-row.ui:37
 msgid "Top"
 msgstr "Parte Superior"
 
-#: src/preferences/widgets/paddings-row.ui:40
+#: extension/preferences/widgets/paddings-row.ui:64
 msgid "Bottom"
 msgstr "Parte Inferior"
 
-#: src/preferences/widgets/paddings-row.ui:55
+#: extension/preferences/widgets/paddings-row.ui:91
 msgid "Left"
 msgstr "Esquerda"
 
-#: src/preferences/widgets/paddings-row.ui:70
+#: extension/preferences/widgets/paddings-row.ui:118
 msgid "Right"
 msgstr "Direita"
 
-#: src/preferences/pages/blacklist.ts:62
+#: extension/preferences/pages/blacklist.js:51
 #, fuzzy
 msgid "Whitelist"
 msgstr "Lista negra"
 
-#: src/preferences/pages/blacklist.ts:63
+#: extension/preferences/pages/blacklist.js:52
 msgid "Blacklist"
 msgstr "Lista negra"
 
-#: src/preferences/widgets/app_row.ts:34
+#: extension/preferences/pages/reset.js:39
+msgid "Skip LibAdwaita Applications"
+msgstr "Ignorar Aplicaçõs Usando LibAdwaita"
+
+#: extension/preferences/pages/reset.js:40
+msgid "Skip LibHandy Applications"
+msgstr "Ignorar Aplicações Usando LibHandy"
+
+#: extension/preferences/pages/reset.js:41
+msgid "Focus Window Shadow Style"
+msgstr "Estilo de Sombra da Janela Focada"
+
+#: extension/preferences/pages/reset.js:42
+msgid "Unfocus Window Shadow Style"
+msgstr "Estilo de Sombra da Janela Desfocada"
+
+#: extension/preferences/pages/reset.js:44
+#, fuzzy
+msgid "Keep Window Shadows when Maximized or Fullscreen"
+msgstr "Manter Cantos Arredondados ao Maximizar ou em Ecrã Inteiro"
+
+#: extension/preferences/pages/reset.js:46
+msgid "Border Width"
+msgstr "Largura da Borda"
+
+#: extension/preferences/pages/reset.js:47
+#, fuzzy
+msgid "Enable Log"
+msgstr "Ativar"
+
+#: extension/preferences/pages/reset.js:49
+msgid "Border Radius"
+msgstr "Raio da Borda"
+
+#: extension/preferences/pages/reset.js:50
+msgid "Border Color"
+msgstr "Cor da Borda"
+
+#: extension/preferences/pages/reset.js:51
+msgid "Padding"
+msgstr "Margem"
+
+#: extension/preferences/pages/reset.js:53
+msgid "Keep Rounded Corners when Maximized or Fullscreen"
+msgstr "Manter Cantos Arredondados ao Maximizar ou em Ecrã Inteiro"
+
+#: extension/preferences/pages/reset.js:55
+msgid "Corner Smoothing"
+msgstr "Suavização dos Cantos"
+
+#: extension/preferences/widgets/app_row.js:35
 #, fuzzy
 msgid "Window class"
 msgstr "Sombra da janela"
 
-#: src/preferences/widgets/app_row.ts:55
+#: extension/preferences/widgets/app_row.js:56
 #, fuzzy
 msgid "Expand this row, to pick a window"
 msgstr "Expanda esta linha para escolher uma janela."
 
-#: src/preferences/widgets/app_row.ts:95
+#. Translators: %s is a window class.
+#: extension/preferences/widgets/app_row.js:81
+#, javascript-format
+msgid "%s is already in the list"
+msgstr ""
+
+#: extension/preferences/widgets/app_row.js:94
 #, fuzzy
 msgid "Can't pick window from this position"
 msgstr "Não é possível selecionar uma janela a partir desta posição"
 
-#: src/preferences/widgets/custom_settings_row.ts:16
+#: extension/preferences/widgets/custom_settings_row.js:14
 #, fuzzy
 msgid "Enabled"
 msgstr "Ativar"
 
-#: src/preferences/widgets/custom_settings_row.ts:48
+#: extension/preferences/widgets/custom_settings_row.js:46
 #, fuzzy
 msgid "Keep rounded corners when maximized"
 msgstr "Manter Cantos Arredondados ao Maximizar"
 
-#: src/preferences/widgets/custom_settings_row.ts:50
+#: extension/preferences/widgets/custom_settings_row.js:48
 #, fuzzy
 msgid "Always clip rounded corners even if window is maximized or tiled"
 msgstr ""
 "Sempre mantenha os cantos arredondados quando a janela estiver maximizada ou "
 "lado a lado."
 
-#: src/preferences/widgets/custom_settings_row.ts:54
+#: extension/preferences/widgets/custom_settings_row.js:52
 #, fuzzy
 msgid "Keep rounded corners when in fullscreen"
 msgstr "Manter Cantos Arredondados em Ecrã Inteiro"
 
-#: src/preferences/widgets/custom_settings_row.ts:55
+#: extension/preferences/widgets/custom_settings_row.js:53
 #, fuzzy
 msgid "Always clip rounded corners even for fullscreen window"
 msgstr ""
@@ -346,36 +406,6 @@ msgstr ""
 #, fuzzy
 #~ msgid "Open prefereces reset page"
 #~ msgstr "Abrir caixa de diálogo de Redefinição de Configurações"
-
-#~ msgid "Skip LibAdwaita Applications"
-#~ msgstr "Ignorar Aplicaçõs Usando LibAdwaita"
-
-#~ msgid "Skip LibHandy Applications"
-#~ msgstr "Ignorar Aplicações Usando LibHandy"
-
-#~ msgid "Focus Window Shadow Style"
-#~ msgstr "Estilo de Sombra da Janela Focada"
-
-#~ msgid "Unfocus Window Shadow Style"
-#~ msgstr "Estilo de Sombra da Janela Desfocada"
-
-#~ msgid "Border Width"
-#~ msgstr "Largura da Borda"
-
-#~ msgid "Border Color"
-#~ msgstr "Cor da Borda"
-
-#~ msgid "Border Radius"
-#~ msgstr "Raio da Borda"
-
-#~ msgid "Padding"
-#~ msgstr "Margem"
-
-#~ msgid "Keep Rounded Corners when Maximized or Fullscreen"
-#~ msgstr "Manter Cantos Arredondados ao Maximizar ou em Ecrã Inteiro"
-
-#~ msgid "Corner Smoothing"
-#~ msgstr "Suavização dos Cantos"
 
 #~ msgid "Expand this row to pick a window."
 #~ msgstr "Expanda esta linha para escolher uma janela."
