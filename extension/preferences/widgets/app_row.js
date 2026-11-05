@@ -10,6 +10,7 @@ import Gtk from 'gi://Gtk';
 import {gettext as _} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
 import {onPicked, pick} from '../../window_picker/client.js';
+import {NO_WINDOW} from '../../window_picker/names.js';
 
 export class AppRowClass extends Adw.ExpanderRow {
     #callbacks;
@@ -88,7 +89,7 @@ export class AppRowClass extends Adw.ExpanderRow {
 
     pickWindow(entry) {
         onPicked(wmInstanceClass => {
-            if (wmInstanceClass === 'window-not-found') {
+            if (wmInstanceClass === NO_WINDOW) {
                 const win = this.root;
                 win.add_toast(
                     new Adw.Toast({

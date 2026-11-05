@@ -16,6 +16,10 @@ Defines the DBus interface for the window picker.
 
 Contains the implementation of the DBus interface.
 
+## `names.js`
+
+The D-Bus names, shared by the service and the client.
+
 ## `client.js`
 
 Provides wrapper JavaScript functions around the DBus method calls.

@@ -15,13 +15,7 @@ import Shell from 'gi://Shell';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
 
-/**
- * @param {unknown} value
- * @param {string} message
- */
-function check(value, message) {
-    if (!value) throw new Error(message);
-}
+import {ok as check} from './harness.js';
 
 /** @returns {Promise<GdkPixbuf.Pixbuf>} The whole stage. */
 async function screenshot() {

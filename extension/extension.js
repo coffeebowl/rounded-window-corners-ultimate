@@ -36,9 +36,6 @@ export default class RoundedWindowCornersUltimate extends Extension {
     /** @type {WindowPicker | null} */
     #windowPicker = null;
 
-    /** @type {number | null} */
-    #layoutManagerStartupConnection = null;
-
     enable() {
         // Initialize extension preferences
         initPrefs(this.getSettings());
@@ -52,16 +49,13 @@ export default class RoundedWindowCornersUltimate extends Extension {
 
         if (layoutManager._startingUp) {
             // Wait for GNOME Shell to be ready before enabling rounded corners
-            this.#layoutManagerStartupConnection = layoutManager.connect(
+            layoutManager.connectObject(
                 'startup-complete',
                 () => {
+                    layoutManager.disconnectObject(this);
                     enableEffect();
-
-                    layoutManager.disconnect(
-                        this.#layoutManagerStartupConnection,
-                    );
-                    this.#layoutManagerStartupConnection = null;
                 },
+                this,
             );
         } else {
             enableEffect();
@@ -142,15 +136,11 @@ export default class RoundedWindowCornersUltimate extends Extension {
         removeWorkspaceShadows();
 
         this.#windowPicker?.unexport();
-        disableEffect();
-
-        // Set all props to null
         this.#windowPicker = null;
 
-        if (this.#layoutManagerStartupConnection !== null) {
-            layoutManager.disconnect(this.#layoutManagerStartupConnection);
-            this.#layoutManagerStartupConnection = null;
-        }
+        // In case the shell is still starting up.
+        layoutManager.disconnectObject(this);
+        disableEffect();
 
         logDebug('Disabled');
 

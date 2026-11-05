@@ -1,20 +1,32 @@
 # `manager`
 
-The rounded corners effect has to perform some actions when differen events
-happen. For example, when a new window is opened, the effect has to detect
-it and add rounded corners to it.
+The rounded corners effect has to react when different events happen. For
+example, when a new window is opened, the effect has to detect it and add
+rounded corners to it.
 
 This directory contains the code that handles these events.
 
+## `window_state.js`
+
+Keeps the state of each window and the update queue. Signal handlers only
+mark what changed; the work runs once per frame before it is painted. Has no
+GNOME Shell imports, so it can be unit tested.
+
 ## `event_manager.js`
 
-Manages connections between gnome shell events and the rounded corners
-effect. It attaches the necessary signals to matching handlers on each effect.
+Connects GNOME Shell signals to the update queue, and pauses windows that
+are hidden behind an opaque fullscreen window.
 
 ## `event_handlers.js`
 
-Contains the implementation of handlers for all of the events.
+Applies the pending changes of a window: adds or removes the effect and the
+shadow, and updates both.
+
+## `coverage.js`
+
+Decides which windows are hidden behind an opaque window that covers their
+monitor. Has no GNOME Shell imports, so it can be unit tested.
 
 ## `utils.js`
 
-Provides various utility functions used withing signal handling code.
+Provides various utility functions used within signal handling code.

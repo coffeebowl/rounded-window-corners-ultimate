@@ -5,17 +5,16 @@
 
 import Gio from 'gi://Gio';
 
+import {BUS_NAME, INTERFACE_NAME, OBJECT_PATH} from './names.js';
+
 const connection = Gio.DBus.session;
-const busName = 'org.gnome.Shell';
-const interfaceName = 'org.gnome.Shell.Extensions.RoundedWindowCornersUltimate';
-const objectPath = '/org/gnome/shell/extensions/RoundedWindowCornersUltimate';
 
 /** Open the window picker and select a window. */
 export function pick() {
     connection.call(
-        busName,
-        objectPath,
-        interfaceName,
+        BUS_NAME,
+        OBJECT_PATH,
+        INTERFACE_NAME,
         'pick',
         null,
         null,
@@ -34,10 +33,10 @@ export function pick() {
  */
 export function onPicked(callback) {
     const id = connection.signal_subscribe(
-        busName,
-        interfaceName,
+        BUS_NAME,
+        INTERFACE_NAME,
         'picked',
-        objectPath,
+        OBJECT_PATH,
         null,
         Gio.DBusSignalFlags.NONE,
         (_conn, _sender, _objectPath, _iface, _signal, params) => {

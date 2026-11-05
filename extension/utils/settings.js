@@ -10,7 +10,6 @@ import GLib from 'gi://GLib';
  * Mapping of schema keys to the JS representation of their type.
  *
  * @typedef {object} SchemaType
- * @property {number} settings-version
  * @property {string[]} blacklist
  * @property {boolean} whitelist
  * @property {boolean} skip-libadwaita-app
@@ -36,7 +35,6 @@ import GLib from 'gi://GLib';
 
 /** Mapping of schema keys to their GLib Variant type string */
 export const Schema = {
-    'settings-version': 'u',
     blacklist: 'as',
     whitelist: 'b',
     'skip-libadwaita-app': 'b',
@@ -91,7 +89,6 @@ let changedId = 0;
  * @param {import('gi://Gio').default.Settings} gSettings - GSettings to initialize the prefs with.
  */
 export function initPrefs(gSettings) {
-    resetOutdated(gSettings);
     prefs = gSettings;
     cache.clear();
     // Connected before anyone else listens to `changed`, so other handlers
@@ -173,56 +170,6 @@ export function setPref(key, value) {
  */
 export function bindPref(key, object, property, flags) {
     prefs.bind(key, object, property, flags);
-}
-
-/**
- * Reset setting keys that changed their type between releases
- * to avoid conflicts.
- *
- * @param {import('gi://Gio').default.Settings} prefs - The GSettings object to clean.
- */
-function resetOutdated(prefs) {
-    const lastVersion = 9;
-    const prefsCurrentVersion = prefs
-        .get_user_value('settings-version')
-        ?.recursiveUnpack();
-    const currentVersion = prefsCurrentVersion ?? 0;
-
-    if (currentVersion < lastVersion) {
-        if (currentVersion < 7) {
-            if (prefs.list_keys().includes('black-list')) {
-                prefs.reset('black-list');
-            }
-            prefs.reset('global-rounded-corner-settings');
-            prefs.reset('custom-rounded-corner-settings');
-            if (prefs.list_keys().includes('border-color')) {
-                prefs.reset('border-color');
-            }
-            prefs.reset('focused-shadow');
-            prefs.reset('unfocused-shadow');
-        }
-
-        if (currentVersion < 8) {
-            const roundedCornerSettings = prefs
-                .get_value('global-rounded-corner-settings')
-                .recursiveUnpack();
-            if (roundedCornerSettings.borderRadius === 12) {
-                roundedCornerSettings.borderRadius = 15;
-                prefs.set_value(
-                    'global-rounded-corner-settings',
-                    packRoundedCornerSettings(roundedCornerSettings),
-                );
-            }
-        }
-
-        if (currentVersion < 9) {
-            if (prefs.list_keys().includes('enable-preferences-entry')) {
-                prefs.reset('enable-preferences-entry');
-            }
-        }
-
-        prefs.set_uint('settings-version', lastVersion);
-    }
 }
 
 /**

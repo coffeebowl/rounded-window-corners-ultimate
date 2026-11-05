@@ -53,8 +53,18 @@ export function addShadowInOverview(window, self) {
     // Create a clone of the window's shadow actor and add it to the preview
     const clone = new OverviewShadowActorClone(shadow, self);
     const bindings = [
-        windowContainer.bind_property('scale-x', clone, 'scale-x', 1),
-        windowContainer.bind_property('scale-y', clone, 'scale-y', 1),
+        windowContainer.bind_property(
+            'scale-x',
+            clone,
+            'scale-x',
+            GObject.BindingFlags.SYNC_CREATE,
+        ),
+        windowContainer.bind_property(
+            'scale-y',
+            clone,
+            'scale-y',
+            GObject.BindingFlags.SYNC_CREATE,
+        ),
     ];
     self.insert_child_below(clone, windowContainer);
 
@@ -62,7 +72,7 @@ export function addShadowInOverview(window, self) {
     self.connectObject('destroy', () => removeFromPreview(self), previews);
 }
 
-/** Remove the shadows and filters from all overview previews. */
+/** Remove the shadows from all overview previews. */
 export function removeOverviewShadows() {
     for (const preview of [...previews.keys()]) removeFromPreview(preview);
 }

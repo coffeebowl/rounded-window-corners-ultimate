@@ -12,6 +12,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import {readRelativeFile} from '../utils/file.js';
 import {logDebug} from '../utils/log.js';
+import {NO_WINDOW, OBJECT_PATH} from './names.js';
 
 const iface = await readRelativeFile(import.meta.url, 'iface.xml');
 
@@ -46,34 +47,17 @@ export class WindowPicker {
         inspector.connect('target', (me, target, x, y) => {
             logDebug(`${me}: pick ${target} in ${x}, ${y}`);
 
-            // Remove the red border effect when the window is picked.
-            const effectName = 'lookingGlass_RedBorderEffect';
-            for (const effect of target.get_effects()) {
-                if (effect.toString().includes(effectName)) {
-                    target.remove_effect(effect);
-                }
-            }
+            // The inspector marks the actor under the pointer with a red
+            // border, which stays unless the looking glass removes it.
+            lookingGlass.setBorderPaintTarget(null);
 
+            // The picked actor is usually a surface somewhere inside the
+            // window actor, for example a subsurface.
             let actor = target;
-
-            // If the picked actor is not a Meta.WindowActor, which happens
-            // often since it's usually a Meta.SurfaceActor, try to find its
-            // parent which is a Meta.WindowActor.
-            for (let i = 0; i < 2; i++) {
-                if (actor === null || actor instanceof Meta.WindowActor) {
-                    break;
-                }
+            while (actor && !(actor instanceof Meta.WindowActor))
                 actor = actor.get_parent();
-            }
 
-            if (!(actor instanceof Meta.WindowActor)) {
-                this.#sendPickedWindow('window-not-found');
-                return;
-            }
-
-            this.#sendPickedWindow(
-                actor.metaWindow?.wmClass ?? 'window-not-found',
-            );
+            this.#sendPickedWindow(actor?.metaWindow?.wmClass ?? NO_WINDOW);
         });
 
         inspector.connect('closed', () => {
@@ -82,10 +66,7 @@ export class WindowPicker {
     }
 
     export() {
-        this.#dbus.export(
-            Gio.DBus.session,
-            '/org/gnome/shell/extensions/RoundedWindowCornersUltimate',
-        );
+        this.#dbus.export(Gio.DBus.session, OBJECT_PATH);
         logDebug('DBus Service exported');
     }
 

@@ -10,15 +10,14 @@ import {getPref, prefs} from './settings.js';
  * hot paths do not build strings that are thrown away:
  * `logDebug(() => `Updating ${win.wmClass}`)`.
  *
- * @param {...unknown} args - Values to log, or a single function returning
- *   the message.
+ * @param {string | (() => string)} message - The message, or a function
+ *   returning it.
  */
-export function logDebug(...args) {
+export function logDebug(message) {
     if (!prefs || !getPref('debug-mode')) return;
 
-    const message =
-        args.length === 1 && typeof args[0] === 'function' ? args[0]() : args;
-    console.log(`[RWC Ultimate] ${message}`);
+    const text = typeof message === 'function' ? message() : message;
+    console.log(`[RWC Ultimate] ${text}`);
 }
 
 /**

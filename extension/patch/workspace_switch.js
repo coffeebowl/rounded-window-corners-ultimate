@@ -1,6 +1,7 @@
 /** @file Provides functions for handling shadows during workspace switching. */
 
 import Clutter from 'gi://Clutter';
+import GObject from 'gi://GObject';
 
 import {states} from '../manager/window_state.js';
 import {SHADOW_PADDING} from '../utils/constants.js';
@@ -9,7 +10,7 @@ import {SHADOW_PADDING} from '../utils/constants.js';
  * Shadow clones by the window clone they belong to, so they can be removed
  * after the switch or when the extension is disabled mid-switch.
  *
- * @type {Map<Clutter.Actor, {shadowClone: Clutter.Clone, binding: import('gi://GObject').default.Binding}>}
+ * @type {Map<Clutter.Actor, {shadowClone: Clutter.Clone, binding: GObject.Binding}>}
  */
 const shadowClones = new Map();
 
@@ -86,13 +87,13 @@ export function addShadowsInWorkspaceSwitch(self) {
                     shadowClone,
                 );
 
-                // Store the reference to the shadow clone. This allows restacking
-                // them, as you can see at the top of this function.
+                // Remember the shadow clone, so the restacked handler above
+                // can keep it below its window clone.
                 const binding = clone.bind_property(
                     'visible',
                     shadowClone,
                     'visible',
-                    0,
+                    GObject.BindingFlags.DEFAULT,
                 );
                 shadowClones.set(clone, {shadowClone, binding});
                 clone.connectObject(

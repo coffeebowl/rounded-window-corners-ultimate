@@ -38,10 +38,3 @@
  * @property {number} verticalOffset
  * @property {number} horizontalOffset
  */
-
-/**
- * A window actor that has a window. Everything the extension keeps per
- * window lives in a WindowState, see manager/window_state.js.
- *
- * @typedef {import('gi://Meta').default.WindowActor} RoundedWindowActor
- */

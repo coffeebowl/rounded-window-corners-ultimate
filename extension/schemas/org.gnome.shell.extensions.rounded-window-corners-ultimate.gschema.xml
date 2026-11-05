@@ -5,23 +5,15 @@
     path="/org/gnome/shell/extensions/rounded-window-corners-ultimate/"
   >
 
-    <key name="settings-version" type="u">
-      <!-- This gets set to the correct value when preferences are migrated -->
-      <default>0</default>
-    </key>
-
     <key name="whitelist" type="b">
-      <summary>Use Blacklist as Whitelist instead</summary>
+      <summary>Use the blacklist as a whitelist instead</summary>
       <default>false</default>
     </key>
 
     <key name="blacklist" type="as">
       <default>[]</default>
-      <summary>window here will not be rounded</summary>
-      <description>
-        The contents of the list represent the instance part of the window's
-        `WM_CLASS`, as same as the output of `xprop WM_CLASS|cut -d \" -f 2`
-      </description>
+      <summary>Windows that are not rounded</summary>
+      <description>Window classes, as shown by the window picker in the preferences or by Looking Glass.</description>
     </key>
 
     <key name="skip-libadwaita-app" type="b">
@@ -35,7 +27,8 @@
     </key>
 
     <key name="border-width" type="i">
-      <summary>Border width for rounded corners window</summary>
+      <summary>Border width of rounded windows</summary>
+      <description>Positive values draw the border inside the window, negative values outside.</description>
       <range min="-40" max="40"/>
       <default>0</default>
     </key>
@@ -43,11 +36,7 @@
     <key name="global-rounded-corner-settings" type="a{sv}">
       <summary>Global rounded corners settings for all windows</summary>
       <default>
-        <!--
-          GLib.Variant is express as <type_name, value> in GSettings, but '<' and '>'
-          is used to close tag in xml, so we have to use '&lt;' and '&rt;' when we
-          want to set default value to Variant type.
-        -->
+        <!-- Variants are written as <value>, escaped as &lt; and &gt; in XML. -->
         {
           'padding': &lt;{
             'left': &lt;uint32 0&gt;,
@@ -68,10 +57,9 @@
     </key>
 
     <key name="custom-rounded-corner-settings" type="a{sv}">
-      <summary>A directory to setup custom paddings for special windows</summary>
+      <summary>Rounded corners settings for single windows, by window class</summary>
       <default>{}</default>
     </key>
-
 
     <key name="focused-shadow" type="a{si}">
       <summary>Shadow for focused window</summary>
@@ -139,11 +127,12 @@
     </key>
 
     <key name="debug-mode" type="b">
-      <summary>If enabled, extension will show debug info into journalctl</summary>
+      <summary>Log debug messages to the journal</summary>
       <default>false</default>
     </key>
 
     <key name="tweak-kitty-terminal" type="b">
+      <summary>Clip the shadow that kitty draws itself on Wayland</summary>
       <default>false</default>
     </key>
   </schema>

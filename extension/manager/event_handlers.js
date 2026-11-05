@@ -321,8 +321,8 @@ function syncTexture(state) {
         if (state.effect) state.texture.set_create_mipmaps(true);
     }
     state.texture = texture;
-    if (texture && state.effect) texture.set_create_mipmaps(false);
     if (texture) {
+        if (state.effect) texture.set_create_mipmaps(false);
         texture.connectObject(
             'size-changed',
             () => queueUpdate(state, GEOMETRY),
@@ -459,7 +459,9 @@ function createShadow(actor) {
     // Draw the shadow actor below the window actor.
     global.windowGroup.insert_child_below(shadow, actor);
 
-    // Bind position and size between window and shadow
+    // Bind position and size between window and shadow. The index is the
+    // Clutter.BindCoordinate (X, Y, WIDTH, HEIGHT), in the order of the
+    // offsets from computeShadowActorOffset.
     for (let i = 0; i < 4; i++) {
         const constraint = new Clutter.BindConstraint({
             source: actor,

@@ -13,8 +13,6 @@ import {logDebug, logError} from '../utils/log.js';
 import {shadowImage} from '../utils/shadow_files.js';
 import {getPref} from '../utils/settings.js';
 
-/** @typedef {import('../utils/types.js').RoundedWindowActor} RoundedWindowActor */
-
 /**
  * Get the actor that rounded corners should be applied to: the child of the
  * window actor that holds the window contents. For Wayland clients that is
@@ -33,7 +31,7 @@ import {getPref} from '../utils/settings.js';
  *
  * Based on kem-a/rounded-window-corners.
  *
- * @param {RoundedWindowActor} actor - The window actor to unwrap.
+ * @param {Meta.WindowActor} actor - The window actor to unwrap.
  * @returns {import('gi://Clutter').default.Actor | null} The actor to apply
  *   the effect to, or null if the window contents do not exist yet.
  */
@@ -85,27 +83,23 @@ export function getShadowCfg(win) {
  * @returns {import('../utils/types.js').RoundedCornerSettings} The matching settings object.
  */
 export function getRoundedCornersCfg(win) {
+    const customCfg =
+        win.wmClass !== null
+            ? getPref('custom-rounded-corner-settings')[win.wmClass]
+            : null;
+    if (customCfg?.enabled) return customCfg;
+
     const globalCfg = getPref('global-rounded-corner-settings');
-    const customCfgList = getPref('custom-rounded-corner-settings');
-
-    if (
-        win.wmClass === null ||
-        !customCfgList[win.wmClass] ||
-        !customCfgList[win.wmClass].enabled
-    ) {
-        const color = prefersDark() ? getPref('dark-border-color') : null;
-        if (!color) return globalCfg;
-        if (darkCfg?.base !== globalCfg || darkCfg.color !== color) {
-            darkCfg = {
-                base: globalCfg,
-                color,
-                cfg: {...globalCfg, borderColor: color},
-            };
-        }
-        return darkCfg.cfg;
+    const color = prefersDark() ? getPref('dark-border-color') : null;
+    if (!color) return globalCfg;
+    if (darkCfg?.base !== globalCfg || darkCfg.color !== color) {
+        darkCfg = {
+            base: globalCfg,
+            color,
+            cfg: {...globalCfg, borderColor: color},
+        };
     }
-
-    return customCfgList[win.wmClass];
+    return darkCfg.cfg;
 }
 
 /**
@@ -330,11 +324,11 @@ export function shouldEnableEffect(win, app) {
         return false;
     }
 
-    // Skip blacklisted applications.
+    // Windows without a class cannot be matched, nor can app settings.
     if (win.wmClass === null) {
         return false;
     }
-    // handles blacklist / whitelist
+    // Skip blacklisted apps, or all but the listed ones as a whitelist.
     const isException = getPref('blacklist').includes(win.wmClass);
     const enableExceptions = getPref('whitelist');
     if (isException !== enableExceptions) {

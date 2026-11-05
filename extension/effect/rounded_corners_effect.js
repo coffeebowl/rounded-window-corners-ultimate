@@ -144,7 +144,6 @@ export const RoundedCornersEffect = GObject.registerClass(
                 borderedAreaRadius = 0.0;
             }
 
-
             // This is needed for squircle corners
             let exponent = smoothing * 10 + 2;
             let radius = outerRadius * 0.5 * exponent;
@@ -160,31 +159,27 @@ export const RoundedCornersEffect = GObject.registerClass(
             }
             borderedAreaRadius *= outerRadius > 0 ? radius / outerRadius : 0;
 
-            let changed = false;
-            changed = this.#setUniform('bounds', bounds) || changed;
-            changed = this.#setUniform('clipRadius', [radius]) || changed;
-            changed = this.#setUniform('borderWidth', [borderWidth]) || changed;
-            changed = this.#setUniform('borderColor', borderColor) || changed;
-            changed =
-                this.#setUniform('borderedAreaBounds', borderedAreaBounds) ||
-                changed;
-            changed =
-                this.#setUniform('borderedAreaClipRadius', [
-                    borderedAreaRadius,
-                ]) || changed;
-            changed = this.#setUniform('exponent', [exponent]) || changed;
-
-            if (changed) {
-                this.queue_repaint();
-            }
+            const uniforms = {
+                bounds,
+                clipRadius: [radius],
+                borderWidth: [borderWidth],
+                borderColor,
+                borderedAreaBounds,
+                borderedAreaClipRadius: [borderedAreaRadius],
+                exponent: [exponent],
+            };
+            for (const [name, values] of Object.entries(uniforms))
+                this.#setUniform(name, values);
         }
 
         /**
-         * Send a uniform to the shader if its value changed.
+         * Send a uniform to the shader if its value changed. Outside of a
+         * paint, Clutter then queues a repaint of the effect by itself
+         * (clutter_shader_effect_add_uniform in Clutter 51), which only
+         * paints the offscreen texture again.
          *
          * @param {string} name - Name of the uniform in the shader.
          * @param {number[]} values - The components of the uniform.
-         * @returns {boolean} Whether the value was sent.
          */
         #setUniform(name, values) {
             const prev = this.#lastUniforms.get(name);
@@ -192,14 +187,12 @@ export const RoundedCornersEffect = GObject.registerClass(
                 prev &&
                 prev.length === values.length &&
                 prev.every((v, i) => v === values[i])
-            ) {
-                return false;
-            }
+            )
+                return;
 
             // Store a copy, borderColor comes from a mutable settings object.
             this.#lastUniforms.set(name, [...values]);
             this.set_uniform_float(name, values.length, values);
-            return true;
         }
     },
 );

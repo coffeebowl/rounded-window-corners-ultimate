@@ -12,7 +12,7 @@ import {equal, ok, run, test} from './harness.js';
 /** A stand-in for Gio.Settings that counts how often values are unpacked. */
 class FakeSettings {
     constructor(values) {
-        this.values = {'settings-version': 9, ...values};
+        this.values = {...values};
         this.unpacks = 0;
         this.handlers = new Map();
         this.nextId = 1;
@@ -48,10 +48,6 @@ class FakeSettings {
 
     set_value(key, variant) {
         this.values[key] = variant.recursiveUnpack();
-    }
-
-    list_keys() {
-        return Object.keys(this.values);
     }
 }
 
