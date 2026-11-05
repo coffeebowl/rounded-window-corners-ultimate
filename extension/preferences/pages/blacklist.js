@@ -4,7 +4,6 @@
  */
 
 import Adw from 'gi://Adw';
-import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import GObject from 'gi://GObject';
 
@@ -29,12 +28,7 @@ export const BlacklistPage = GObject.registerClass(
         constructor() {
             super();
 
-            bindPref(
-                'whitelist',
-                this._useWhitelist,
-                'active',
-                Gio.SettingsBindFlags.DEFAULT,
-            );
+            bindPref('whitelist', this._useWhitelist, 'active');
 
             for (const title of this.#blacklist) {
                 this.addWindow(undefined, title);
@@ -80,8 +74,12 @@ export const BlacklistPage = GObject.registerClass(
          * @param {import('../widgets/app_row.js').AppRowClass} row - The row to delete.
          */
         #deleteWindow(row) {
-            this.#blacklist.splice(this.#blacklist.indexOf(row.title), 1);
-            setPref('blacklist', this.#blacklist);
+            // The window class is the subtitle; the title is a hint text.
+            const index = this.#blacklist.indexOf(row.subtitle);
+            if (index >= 0) {
+                this.#blacklist.splice(index, 1);
+                setPref('blacklist', this.#blacklist);
+            }
             this._blacklistGroup.remove(row);
         }
 
@@ -89,21 +87,10 @@ export const BlacklistPage = GObject.registerClass(
          * Change the blacklist entry to a different window.
          * @param {string} oldWmClass - Current WM_CLASS of the entry.
          * @param {string} newWmClass - New WM_CLASS of the entry.
-         * @returns Whether the entry was changed successfully.
+         * @returns {boolean} False if the window is already in the list.
          */
         #changeWindow(oldWmClass, newWmClass) {
-            if (this.#blacklist.includes(newWmClass)) {
-                // If the new window is already in the blacklist, show an error.
-                const win = this.root;
-                win.add_toast(
-                    new Adw.Toast({
-                        title: _(
-                            `Can't add ${newWmClass} to the list, because it already there`,
-                        ),
-                    }),
-                );
-                return false;
-            }
+            if (this.#blacklist.includes(newWmClass)) return false;
 
             if (oldWmClass === '') {
                 // If the old WM_CLASS is empty, the entry was just created,

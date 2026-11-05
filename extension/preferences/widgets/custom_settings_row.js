@@ -4,12 +4,10 @@ import Adw from 'gi://Adw';
 import GObject from 'gi://GObject';
 import Gtk from 'gi://Gtk';
 
-import {PaddingsRow} from './paddings_row.js';
-import './app_row.js';
-
 import {gettext as _} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
-import { AppRowClass} from './app_row.js';
+import {AppRowClass} from './app_row.js';
+import {PaddingsRow} from './paddings_row.js';
 
 export class CustomSettingsRowClass extends AppRowClass {
     enabledRow = new Adw.SwitchRow({
@@ -94,30 +92,23 @@ export class CustomSettingsRowClass extends AppRowClass {
         this.add_row(this.keepForFullscreen);
         this.add_row(this.paddings);
 
-        this.checkState();
+        this.enabledRow.connect('notify::active', () => this.#syncSensitive());
+        this.connect('notify::subtitle', () => this.#syncSensitive());
+        this.#syncSensitive();
     }
 
-    checkState() {
-        if (!this.enabledRow.get_active()) {
-            this.#toggleSensitivity(false);
-            return;
-        }
-
-        if (this.subtitle === '') {
-            this.#toggleSensitivity(false);
-            return;
-        }
-
-        this.#toggleSensitivity(true);
-    }
-
-    #toggleSensitivity(state) {
-        this.#borderColorRow.set_sensitive(state);
-        this.#cornerRadiusRow.set_sensitive(state);
-        this.#cornerSmoothingRow.set_sensitive(state);
-        this.keepForMaximized.set_sensitive(state);
-        this.keepForFullscreen.set_sensitive(state);
-        this.paddings.set_sensitive(state);
+    /** Let the settings be edited only for an enabled, named window. */
+    #syncSensitive() {
+        const sensitive = this.enabledRow.active && this.subtitle !== '';
+        for (const row of [
+            this.#borderColorRow,
+            this.#cornerRadiusRow,
+            this.#cornerSmoothingRow,
+            this.keepForMaximized,
+            this.keepForFullscreen,
+            this.paddings,
+        ])
+            row.sensitive = sensitive;
     }
 }
 

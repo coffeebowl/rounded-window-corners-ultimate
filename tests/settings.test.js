@@ -1,6 +1,7 @@
 // Tests for the settings cache in extension/utils/settings.js.
 
 import {
+    connectPref,
     getPref,
     getPrefCopy,
     initPrefs,
@@ -30,7 +31,8 @@ class FakeSettings {
 
     emitChanged(key) {
         for (const {signal, callback} of this.handlers.values())
-            if (signal === 'changed') callback(this, key);
+            if (signal === 'changed' || signal === `changed::${key}`)
+                callback(this, key);
     }
 
     get_user_value(key) {
@@ -116,6 +118,19 @@ test('uninitPrefs disconnects and clears the cache', () => {
     initPrefs(settings);
     equal(getPref('border-width'), 9, 'no stale value after re-init');
     uninitPrefs();
+});
+
+test('connectPref sees the new value and ends with uninitPrefs', () => {
+    const settings = new FakeSettings({'border-width': 2});
+    initPrefs(settings);
+    const seen = [];
+    connectPref('border-width', () => seen.push(getPref('border-width')));
+    settings.values['border-width'] = 3;
+    settings.emitChanged('border-width');
+    settings.emitChanged('debug-mode');
+    equal(seen, [3]);
+    uninitPrefs();
+    equal(settings.handlers.size, 0);
 });
 
 test('debug logging reads the cached flag', async () => {

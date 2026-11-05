@@ -1,7 +1,7 @@
 /**
  * @file Contains the implementation of the reset page.
- * The list of prefs that can be reset is stored in the `#resetPrefs` variable,
- * and the UI is automatically generated from that.
+ * The prefs that can be reset are listed in `#resetLabels`, and the UI is
+ * generated from that.
  */
 
 import Adw from 'gi://Adw';
@@ -17,6 +17,8 @@ import {
     setPref,
 } from '../../utils/settings.js';
 
+const GLOBAL_KEY = 'global-rounded-corner-settings';
+
 export const ResetPage = GObject.registerClass(
     {
         Template: GLib.uri_resolve_relative(
@@ -31,26 +33,26 @@ export const ResetPage = GObject.registerClass(
         // Store all switches in a list to enable the "select all" button.
         #rows = [];
 
-        // List of prefs that should be reset.
-        #resetPrefs = [];
-
-        // Map prefs to their labels in the UI.
+        // Settings keys, and keys inside of `global-rounded-corner-settings`,
+        // with their labels in the UI.
         #resetLabels = {
-            'skip-libadwaita-app': 'Skip LibAdwaita Applications',
-            'skip-libhandy-app': 'Skip LibHandy Applications',
-            'focused-shadow': 'Focus Window Shadow Style',
-            'unfocused-shadow': 'Unfocus Window Shadow Style',
-            'keep-shadow-for-maximized-fullscreen':
+            'skip-libadwaita-app': _('Skip LibAdwaita Applications'),
+            'skip-libhandy-app': _('Skip LibHandy Applications'),
+            'focused-shadow': _('Focus Window Shadow Style'),
+            'unfocused-shadow': _('Unfocus Window Shadow Style'),
+            'keep-shadow-for-maximized-fullscreen': _(
                 'Keep Window Shadows when Maximized or Fullscreen',
-            'border-width': 'Border Width',
-            'debug-mode': 'Enable Log',
+            ),
+            'border-width': _('Border Width'),
+            'debug-mode': _('Enable Log'),
 
-            borderRadius: 'Border Radius',
-            borderColor: 'Border Color',
-            padding: 'Padding',
-            keepRoundedCorners:
+            borderRadius: _('Border Radius'),
+            borderColor: _('Border Color'),
+            padding: _('Padding'),
+            keepRoundedCorners: _(
                 'Keep Rounded Corners when Maximized or Fullscreen',
-            smoothing: 'Corner Smoothing',
+            ),
+            smoothing: _('Corner Smoothing'),
         };
 
         constructor() {
@@ -74,60 +76,35 @@ export const ResetPage = GObject.registerClass(
                 return;
             }
 
-            const defaultRoundedCornerSettings = prefs
-                .get_default_value('global-rounded-corner-settings')
-                ?.recursiveUnpack();
+            const defaults = prefs
+                .get_default_value(GLOBAL_KEY)
+                .recursiveUnpack();
+            const current = getPrefCopy(GLOBAL_KEY);
+            let globalChanged = false;
 
-            const currentRoundedCornerSettings = getPrefCopy(
-                'global-rounded-corner-settings',
-            );
-
-            for (const key of this.#resetPrefs) {
-                if (key in Schema) {
-                    // If the key is a top-level prefs schema key, reset it directly.
-                    prefs.reset(key);
+            for (const row of this.#rows) {
+                if (!row.active) continue;
+                if (row.name in Schema) {
+                    // A top-level key, reset it directly.
+                    prefs.reset(row.name);
                 } else {
-                    // Otherwise, it's a key inside of `global-rounded-corner-settings`,
-                    // and should be reset accordingly.
-                    const settingsKey = key;
-                    currentRoundedCornerSettings[settingsKey] =
-                        defaultRoundedCornerSettings[settingsKey];
+                    // A key inside of `global-rounded-corner-settings`.
+                    current[row.name] = defaults[row.name];
+                    globalChanged = true;
                 }
             }
 
-            setPref(
-                'global-rounded-corner-settings',
-                currentRoundedCornerSettings,
-            );
+            if (globalChanged) setPref(GLOBAL_KEY, current);
 
-            const root = this.root;
-            root.pop_subpage();
+            this.root.pop_subpage();
         }
 
         /** Generate the UI from {@link #resetLabels}. */
         #buildUi() {
-            for (const [key, label] of Object.entries(this.#resetLabels)) {
-                const row = new Adw.SwitchRow({
-                    active: false,
-                    name: key,
-                    title: _(label),
-                });
-                row.connect('notify::active', source =>
-                    this.#onToggled(source),
-                );
+            for (const [key, title] of Object.entries(this.#resetLabels)) {
+                const row = new Adw.SwitchRow({active: false, name: key, title});
                 this._resetGroup.add(row);
                 this.#rows.push(row);
-            }
-        }
-
-        /** Callback to add or remove a pref from the list of prefs to reset. */
-        #onToggled(source) {
-            if (source.active) {
-                this.#resetPrefs.push(source.name);
-            } else {
-                this.#resetPrefs = this.#resetPrefs.filter(
-                    k => k !== source.name,
-                );
             }
         }
     },

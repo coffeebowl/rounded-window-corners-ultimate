@@ -4,14 +4,20 @@
  */
 
 import Adw from 'gi://Adw';
-import Gdk from 'gi://Gdk';
-import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import GObject from 'gi://GObject';
 
-import {bindPref, getPrefCopy, setPref} from '../../utils/settings.js';
+import {
+    bindPref,
+    connectPref,
+    getPrefCopy,
+    setPref,
+} from '../../utils/settings.js';
+import {bindCornerSettings} from '../corner_settings.js';
 import {EditShadowPage} from './edit_shadow.js';
 import {ResetPage} from './reset.js';
+
+const GLOBAL_KEY = 'global-rounded-corner-settings';
 
 export const GeneralPage = GObject.registerClass(
     {
@@ -41,135 +47,52 @@ export const GeneralPage = GObject.registerClass(
         ],
     },
     class extends Adw.PreferencesPage {
-        #settings = getPrefCopy('global-rounded-corner-settings');
+        #settings = getPrefCopy(GLOBAL_KEY);
 
-        // Bind all buttons to respective prefs.
         constructor() {
             super();
 
-            bindPref(
-                'skip-libadwaita-app',
-                this._skipLibadwaita,
-                'active',
-                Gio.SettingsBindFlags.DEFAULT,
-            );
-            bindPref(
-                'skip-libhandy-app',
-                this._skipLibhandy,
-                'active',
-                Gio.SettingsBindFlags.DEFAULT,
-            );
+            for (const [key, widget, property] of [
+                ['skip-libadwaita-app', this._skipLibadwaita, 'active'],
+                ['skip-libhandy-app', this._skipLibhandy, 'active'],
+                ['border-width', this._borderWidth, 'value'],
+                [
+                    'keep-shadow-for-maximized-fullscreen',
+                    this._keepShadowForMaximizedFullscreen,
+                    'active',
+                ],
+                ['tweak-kitty-terminal', this._tweakKitty, 'active'],
+                ['debug-mode', this._enableDebugLogs, 'active'],
+            ])
+                bindPref(key, widget, property);
 
-            bindPref(
-                'border-width',
-                this._borderWidth,
-                'value',
-                Gio.SettingsBindFlags.DEFAULT,
-            );
-
-            const color = new Gdk.RGBA();
-            [color.red, color.green, color.blue, color.alpha] =
-                this.#settings.borderColor;
-            this._borderColor.set_rgba(color);
-            this._borderColor.connect('notify::rgba', button => {
-                const color = button.get_rgba();
-                this.#settings.borderColor = [
-                    color.red,
-                    color.green,
-                    color.blue,
-                    color.alpha,
-                ];
-                this.#updateGlobalConfig();
-            });
-
-            this._cornerRadius.set_value(this.#settings.borderRadius);
-            this._cornerRadius.connect('value-changed', adj => {
-                this.#settings.borderRadius = adj.get_value();
-                this.#updateGlobalConfig();
-            });
-
-            this._cornerSmoothing.set_value(this.#settings.smoothing);
-            this._cornerSmoothing.connect('value-changed', adj => {
-                this.#settings.smoothing = adj.get_value();
-                this.#updateGlobalConfig();
-            });
-
-            bindPref(
-                'keep-shadow-for-maximized-fullscreen',
-                this._keepShadowForMaximizedFullscreen,
-                'active',
-                Gio.SettingsBindFlags.DEFAULT,
+            const load = bindCornerSettings(
+                {
+                    borderColor: this._borderColor,
+                    cornerRadius: this._cornerRadius,
+                    cornerSmoothing: this._cornerSmoothing,
+                    keepForMaximized: this._keepForMaximized,
+                    keepForFullscreen: this._keepForFullscreen,
+                    paddings: this._paddings,
+                },
+                () => this.#settings,
+                () => setPref(GLOBAL_KEY, this.#settings),
             );
 
-            this._keepForMaximized.set_active(
-                this.#settings.keepRoundedCorners.maximized,
-            );
-            this._keepForMaximized.connect('notify::active', swtch => {
-                this.#settings.keepRoundedCorners.maximized =
-                    swtch.get_active();
-                this.#updateGlobalConfig();
+            // The reset page changes the settings as well. Without this,
+            // the next change here would write the old values back.
+            connectPref(GLOBAL_KEY, () => {
+                this.#settings = getPrefCopy(GLOBAL_KEY);
+                load();
             });
-
-            this._keepForFullscreen.set_active(
-                this.#settings.keepRoundedCorners.fullscreen,
-            );
-            this._keepForFullscreen.connect('notify::active', swtch => {
-                this.#settings.keepRoundedCorners.fullscreen =
-                    swtch.get_active();
-                this.#updateGlobalConfig();
-            });
-
-            this._paddings.paddingTop = this.#settings.padding.top;
-            this._paddings.connect('notify::padding-top', row => {
-                this.#settings.padding.top = row.paddingTop;
-                this.#updateGlobalConfig();
-            });
-
-            this._paddings.paddingBottom = this.#settings.padding.bottom;
-            this._paddings.connect('notify::padding-bottom', row => {
-                this.#settings.padding.bottom = row.paddingBottom;
-                this.#updateGlobalConfig();
-            });
-
-            this._paddings.paddingStart = this.#settings.padding.left;
-            this._paddings.connect('notify::padding-start', row => {
-                this.#settings.padding.left = row.paddingStart;
-                this.#updateGlobalConfig();
-            });
-
-            this._paddings.paddingEnd = this.#settings.padding.right;
-            this._paddings.connect('notify::padding-end', row => {
-                this.#settings.padding.right = row.paddingEnd;
-                this.#updateGlobalConfig();
-            });
-
-            bindPref(
-                'tweak-kitty-terminal',
-                this._tweakKitty,
-                'active',
-                Gio.SettingsBindFlags.DEFAULT,
-            );
-
-            bindPref(
-                'debug-mode',
-                this._enableDebugLogs,
-                'active',
-                Gio.SettingsBindFlags.DEFAULT,
-            );
         }
 
-        showResetPage(_) {
-            const root = this.root;
-            root.push_subpage(new ResetPage());
+        showResetPage() {
+            this.root.push_subpage(new ResetPage());
         }
 
-        showShadowPage(_) {
-            const root = this.root;
-            root.push_subpage(new EditShadowPage());
-        }
-
-        #updateGlobalConfig() {
-            setPref('global-rounded-corner-settings', this.#settings);
+        showShadowPage() {
+            this.root.push_subpage(new EditShadowPage());
         }
     },
 );

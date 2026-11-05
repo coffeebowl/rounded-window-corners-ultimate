@@ -9,6 +9,11 @@ Note that the actual implementation of the preferences page is in the
 
 Contains a `prefsTabs` variable that lists all of the tabs to be initialized.
 
+## `corner_settings.js`
+
+Connects the widgets for rounded corner settings to a settings object. Used
+by the general page and the rows of the custom page.
+
 ## `pages`
 
 This directory contains the code for each of the tabs, as well as the subpages

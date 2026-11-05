@@ -66,21 +66,22 @@ export class AppRowClass extends Adw.ExpanderRow {
         });
     }
 
+    /**
+     * Apply the window class from the entry. The callback refuses classes
+     * that are already in the list.
+     *
+     * @param {Adw.EntryRow} entry - The entry with the new window class.
+     */
     onTitleChange(entry) {
-        // Skip if the title hasn't changed
-        if (this.subtitle === entry.text || entry.text === '') {
+        const wmClass = entry.text;
+        if (wmClass === '' || wmClass === this.subtitle) return;
+
+        if (!this.#callbacks.onWindowChange(this, this.subtitle, wmClass)) {
+            // Translators: %s is a window class.
+            this.#toast(_('%s is already in the list').replace('%s', wmClass));
             return;
         }
-
-        if (
-            this.#callbacks.onWindowChange(
-                this,
-                this.subtitle || '',
-                entry.text || '',
-            )
-        ) {
-            this.set_subtitle(entry.text || '');
-        }
+        this.set_subtitle(wmClass);
     }
 
     onDelete() {
@@ -90,17 +91,17 @@ export class AppRowClass extends Adw.ExpanderRow {
     pickWindow(entry) {
         onPicked(wmInstanceClass => {
             if (wmInstanceClass === NO_WINDOW) {
-                const win = this.root;
-                win.add_toast(
-                    new Adw.Toast({
-                        title: _("Can't pick window from this position"),
-                    }),
-                );
+                this.#toast(_("Can't pick window from this position"));
                 return;
             }
             entry.text = wmInstanceClass;
         });
         pick();
+    }
+
+    /** @param {string} title - Message to show at the bottom of the window. */
+    #toast(title) {
+        this.root.add_toast(new Adw.Toast({title}));
     }
 }
 

@@ -4,6 +4,7 @@
  * are used for storing GSettings.
  */
 
+import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
 /**
@@ -67,7 +68,7 @@ const OPTIONAL_KEYS = new Set([
 /**
  * The raw GSettings object for direct manipulation.
  *
- * @type {import('gi://Gio').default.Settings}
+ * @type {Gio.Settings}
  */
 export let prefs;
 
@@ -80,8 +81,13 @@ export let prefs;
  */
 const cache = new Map();
 
-/** Handler ID of the `changed` signal that invalidates {@link cache}. */
-let changedId = 0;
+/**
+ * Handler IDs on {@link prefs}: the one that invalidates {@link cache}, then
+ * those of {@link connectPref}. All are disconnected by {@link uninitPrefs}.
+ *
+ * @type {number[]}
+ */
+const handlerIds = [];
 
 /**
  * Initialize the {@link prefs} object with existing GSettings.
@@ -93,15 +99,28 @@ export function initPrefs(gSettings) {
     cache.clear();
     // Connected before anyone else listens to `changed`, so other handlers
     // already read the new value.
-    changedId = prefs.connect('changed', (_settings, key) => cache.delete(key));
+    handlerIds.push(
+        prefs.connect('changed', (_settings, key) => cache.delete(key)),
+    );
 }
 
 /** Delete the {@link prefs} object for garbage collection. */
 export function uninitPrefs() {
-    if (prefs && changedId) prefs.disconnect(changedId);
-    changedId = 0;
+    for (const id of handlerIds) prefs?.disconnect(id);
+    handlerIds.length = 0;
     cache.clear();
     prefs = null;
+}
+
+/**
+ * Run a callback whenever a preference changes, until {@link uninitPrefs}.
+ * For the preferences window, which can outlive its settings object.
+ *
+ * @param {SchemaKey} key - The key to watch.
+ * @param {() => void} callback - Runs after the change.
+ */
+export function connectPref(key, callback) {
+    handlerIds.push(prefs.connect(`changed::${key}`, () => callback()));
 }
 
 /**
@@ -161,15 +180,15 @@ export function setPref(key, value) {
 }
 
 /**
- * A simple wrapper around {@link prefs.bind}.
+ * Bind a preference to a property in both directions, see
+ * {@link prefs.bind}.
  *
  * @param {SchemaKey} key - The key to bind.
  * @param {import('gi://GObject').default.Object} object - The object to bind to.
  * @param {string} property - The property of `object` to bind.
- * @param {import('gi://Gio').default.SettingsBindFlags} flags - Binding flags.
  */
-export function bindPref(key, object, property, flags) {
-    prefs.bind(key, object, property, flags);
+export function bindPref(key, object, property) {
+    prefs.bind(key, object, property, Gio.SettingsBindFlags.DEFAULT);
 }
 
 /**

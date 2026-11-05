@@ -8,8 +8,7 @@ EXTRA_SOURCES = \
 	patch \
 	preferences \
 	utils \
-	window_picker \
-	stylesheet-prefs.css
+	window_picker
 
 .PHONY: pack install test smoke pot clean
 
@@ -37,6 +36,7 @@ smoke:
 		tests/run-smoke.sh wayland
 	RWC_SMOKE_MONITOR=1920x1080 RWC_SMOKE_SCRIPT=$(CURDIR)/tests/border-smoke.js \
 		tests/run-smoke.sh x11
+	RWC_SMOKE_SCRIPT=$(CURDIR)/tests/prefs-smoke.js tests/run-smoke.sh wayland
 
 pot:
 	xgettext --from-code=UTF-8 \

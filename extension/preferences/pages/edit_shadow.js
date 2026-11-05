@@ -1,6 +1,6 @@
 /**
  * @file Contains the code for the shadow settings page.
- * It implements the dynamic preview widget that uses GTK CSS Provider to
+ * It implements the dynamic preview widget that uses a GTK CSS provider to
  * show what the shadow will look like.
  */
 
@@ -13,6 +13,24 @@ import Gtk from 'gi://Gtk';
 import {boxShadowCss} from '../../utils/box_shadow.js';
 import {getPref, setPref} from '../../utils/settings.js';
 
+/**
+ * Shadow properties and the name parts of their adjustments in the UI, for
+ * example `_focusedBlurRadius` for `blurOffset` of the focused shadow.
+ */
+const FIELDS = {
+    horizontalOffset: 'HorizontalOffset',
+    verticalOffset: 'VerticalOffset',
+    blurOffset: 'BlurRadius',
+    spreadRadius: 'SpreadRadius',
+    opacity: 'Opacity',
+};
+
+/** The shadows on this page: settings key and adjustment name prefix. */
+const SHADOWS = [
+    ['focused-shadow', 'focused'],
+    ['unfocused-shadow', 'unfocused'],
+];
+
 export const EditShadowPage = GObject.registerClass(
     {
         Template: GLib.uri_resolve_relative(
@@ -22,10 +40,6 @@ export const EditShadowPage = GObject.registerClass(
         ),
         GTypeName: 'EditShadowPage',
         InternalChildren: [
-            'focusedShadowPreview',
-            'unfocusedShadowPreview',
-            'previewRow',
-
             'focusedHorizontalOffset',
             'focusedVerticalOffset',
             'focusedBlurRadius',
@@ -40,154 +54,104 @@ export const EditShadowPage = GObject.registerClass(
         ],
     },
     class extends Adw.NavigationPage {
-        // CSS Providers allow to dynamically apply a CSS style string to
-        // the preview widgets.
-        #unfocusCssProvider = new Gtk.CssProvider();
-        #focusCssProvider = new Gtk.CssProvider();
-        #backgroundCssProvider = new Gtk.CssProvider();
+        /** Styles of the preview, added to the display while shown. */
+        #css = new Gtk.CssProvider();
 
-        #focusedShadowSettings = getPref('focused-shadow');
-        #unfocusedShadowSettings = getPref('unfocused-shadow');
+        #styleManager = Adw.StyleManager.get_default();
+        #darkChangedId = 0;
+        #wallpaper = '';
 
         #isInitialized = false;
 
         constructor() {
             super();
 
-            // Update the desktop wallpaper in the preview when switching
-            // between light and dark mode, since the wallpaper can change
-            // when that happens.
-            const styleManager = new Adw.StyleManager();
-            styleManager.connect('notify::dark', manager => {
-                this.#refreshWallpaper(manager);
-            });
-
-            // Initialize the styles of preview widgets.
-            this._focusedShadowPreview
-                .get_style_context()
-                .add_provider(
-                    this.#focusCssProvider,
-                    Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
-                );
-            this._unfocusedShadowPreview
-                .get_style_context()
-                .add_provider(
-                    this.#unfocusCssProvider,
-                    Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
-                );
-            this._previewRow
-                .get_style_context()
-                .add_provider(
-                    this.#backgroundCssProvider,
-                    Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
-                );
-
-            this.#refreshWallpaper(styleManager);
-            this.#syncWidgetState();
-            this.#updatePreviewStyle();
+            for (const [key, prefix] of SHADOWS) {
+                const shadow = getPref(key);
+                for (const [field, name] of Object.entries(FIELDS))
+                    this[`_${prefix}${name}`].value = shadow[field];
+            }
             this.#isInitialized = true;
         }
 
+        vfunc_map() {
+            super.vfunc_map();
+            Gtk.StyleContext.add_provider_for_display(
+                this.get_display(),
+                this.#css,
+                Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
+            );
+            // The wallpaper can differ between light and dark.
+            this.#darkChangedId = this.#styleManager.connect(
+                'notify::dark',
+                () => this.#refreshWallpaper(),
+            );
+            this.#refreshWallpaper();
+        }
+
+        vfunc_unmap() {
+            this.#styleManager.disconnect(this.#darkChangedId);
+            this.#darkChangedId = 0;
+            Gtk.StyleContext.remove_provider_for_display(
+                this.get_display(),
+                this.#css,
+            );
+            super.vfunc_unmap();
+        }
+
         onValueChanged() {
-            if (!this.#isInitialized) {
-                return;
-            }
-            this.#setPrefs();
-            this.#updatePreviewStyle();
+            if (!this.#isInitialized) return;
+
+            for (const [key, prefix] of SHADOWS)
+                setPref(key, this.#readShadow(prefix));
+            this.#updateCss();
         }
 
-        /** Synchronize the widget state with actual setting values. */
-        #syncWidgetState() {
-            this._focusedHorizontalOffset.set_value(
-                this.#focusedShadowSettings.horizontalOffset,
-            );
-            this._focusedVerticalOffset.set_value(
-                this.#focusedShadowSettings.verticalOffset,
-            );
-            this._focusedBlurRadius.set_value(
-                this.#focusedShadowSettings.blurOffset,
-            );
-            this._focusedSpreadRadius.set_value(
-                this.#focusedShadowSettings.spreadRadius,
-            );
-            this._focusedOpacity.set_value(this.#focusedShadowSettings.opacity);
-
-            this._unfocusedHorizontalOffset.set_value(
-                this.#unfocusedShadowSettings.horizontalOffset,
-            );
-            this._unfocusedVerticalOffset.set_value(
-                this.#unfocusedShadowSettings.verticalOffset,
-            );
-            this._unfocusedBlurRadius.set_value(
-                this.#unfocusedShadowSettings.blurOffset,
-            );
-            this._unfocusedSpreadRadius.set_value(
-                this.#unfocusedShadowSettings.spreadRadius,
-            );
-            this._unfocusedOpacity.set_value(
-                this.#unfocusedShadowSettings.opacity,
-            );
+        /**
+         * Read a shadow from its adjustments.
+         *
+         * @param {string} prefix - `focused` or `unfocused`.
+         * @returns {import('../../utils/types.js').BoxShadow}
+         */
+        #readShadow(prefix) {
+            const shadow = {};
+            for (const [field, name] of Object.entries(FIELDS))
+                shadow[field] = this[`_${prefix}${name}`].value;
+            return shadow;
         }
 
-        /** Update the desktop wallpaper in the preview. */
-        #refreshWallpaper(manager) {
-            const backgrounds = Gio.Settings.new(
-                'org.gnome.desktop.background',
+        /** Show the desktop wallpaper in the preview. */
+        #refreshWallpaper() {
+            const backgrounds = Gio.Settings.new('org.gnome.desktop.background');
+            this.#wallpaper = backgrounds.get_string(
+                this.#styleManager.dark ? 'picture-uri-dark' : 'picture-uri',
             );
-            const path = manager.get_dark()
-                ? backgrounds.get_string('picture-uri-dark')
-                : backgrounds.get_string('picture-uri');
-            this.#backgroundCssProvider.load_from_string(`.desktop-background {
-                background: url("${path}");
-                background-size: cover; 
-            }`);
+            this.#updateCss();
         }
 
-        /** Update the CSS style of preview widgets to match shadow settings. */
-        #updatePreviewStyle() {
-            this.#unfocusCssProvider.load_from_string(
-                `.preview {
-                   transition: box-shadow 200ms;
-                   ${boxShadowCss(this.#unfocusedShadowSettings)};
-                   border-radius: 15px;
-                 }
-                 .preview:hover {
-                   ${boxShadowCss(this.#focusedShadowSettings)};
-                 }`,
-            );
-            this.#focusCssProvider.load_from_string(
-                `.preview {
-                   transition: box-shadow 200ms;
-                   ${boxShadowCss(this.#focusedShadowSettings)};
-                   border-radius: 15px;
-                 }
-                 .preview:hover {
-                   ${boxShadowCss(this.#unfocusedShadowSettings)};
-                 }`,
-            );
-        }
-
-        /** Update extension preferences based on widget state. */
-        #setPrefs() {
-            const focusedShadow = {
-                verticalOffset: this._focusedVerticalOffset.get_value(),
-                horizontalOffset: this._focusedHorizontalOffset.get_value(),
-                blurOffset: this._focusedBlurRadius.get_value(),
-                spreadRadius: this._focusedSpreadRadius.get_value(),
-                opacity: this._focusedOpacity.get_value(),
-            };
-            this.#focusedShadowSettings = focusedShadow;
-            const unfocusedShadow = {
-                verticalOffset: this._unfocusedVerticalOffset.get_value(),
-                horizontalOffset: this._unfocusedHorizontalOffset.get_value(),
-                blurOffset: this._unfocusedBlurRadius.get_value(),
-                spreadRadius: this._unfocusedSpreadRadius.get_value(),
-                opacity: this._unfocusedOpacity.get_value(),
-            };
-            this.#unfocusedShadowSettings = unfocusedShadow;
-
-            setPref('unfocused-shadow', this.#unfocusedShadowSettings);
-            setPref('focused-shadow', this.#focusedShadowSettings);
+        /**
+         * Style the previews with the shadows. Hovering a preview shows the
+         * other shadow, to compare them.
+         */
+        #updateCss() {
+            const focused = boxShadowCss(this.#readShadow('focused'));
+            const unfocused = boxShadowCss(this.#readShadow('unfocused'));
+            this.#css.load_from_string(`
+                .rwc-desktop-background {
+                    background: url("${this.#wallpaper}");
+                    background-size: cover;
+                }
+                .rwc-focused-preview, .rwc-unfocused-preview {
+                    border-radius: 15px;
+                    transition: box-shadow 200ms;
+                }
+                .rwc-focused-preview, .rwc-unfocused-preview:hover {
+                    ${focused};
+                }
+                .rwc-unfocused-preview, .rwc-focused-preview:hover {
+                    ${unfocused};
+                }
+            `);
         }
     },
 );

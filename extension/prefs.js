@@ -1,9 +1,5 @@
 /** @file Contains the implementation of the preferences page. */
 
-import Gdk from 'gi://Gdk';
-import GLib from 'gi://GLib';
-import Gtk from 'gi://Gtk';
-
 import {ExtensionPreferences} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
 import {prefsTabs} from './preferences/index.js';
@@ -24,20 +20,5 @@ export default class RoundedWindowCornersUltimatePrefs extends ExtensionPreferen
             logDebug('Disconnect Signals');
             uninitPrefs();
         });
-
-        this.#loadCss();
-    }
-
-    #loadCss() {
-        const display = Gdk.Display.get_default();
-        if (display) {
-            const css = new Gtk.CssProvider();
-            const path = GLib.build_filenamev([
-                import.meta.url,
-                'stylesheet-prefs.css',
-            ]);
-            css.load_from_path(path);
-            Gtk.StyleContext.add_provider_for_display(display, css, 0);
-        }
     }
 }

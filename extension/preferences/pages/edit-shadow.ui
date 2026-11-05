@@ -17,7 +17,7 @@
                   <object class="GtkBox" id="previewRow">
                     <style>
                       <class name="card"/>
-                      <class name="desktop-background"/>
+                      <class name="rwc-desktop-background"/>
                     </style>
                     <child>
                       <object class="GtkBox">
@@ -34,7 +34,7 @@
                             <property name="margin-end">24</property>
                             <style>
                               <class name="background" />
-                              <class name="preview" />
+                              <class name="rwc-focused-preview" />
                             </style>
                           </object>
                         </child>
@@ -49,7 +49,7 @@
                             <property name="margin-end">24</property>
                             <style>
                               <class name="background" />
-                              <class name="preview" />
+                              <class name="rwc-unfocused-preview" />
                             </style>
                           </object>
                         </child>
