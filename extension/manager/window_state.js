@@ -42,7 +42,7 @@ export const DEFORM = 16;
  *   Objects with signals connected for this window, to disconnect them.
  * @property {{type: 'LibHandy' | 'LibAdwaita' | 'Other', chromium: boolean} | null} app -
  *   What the app is built with, once known.
- * @property {boolean} detecting - Whether the app detection is running.
+ * @property {Promise<void> | null} detection - The running app detection.
  * @property {number} pid - Process ID used for the app detection, or 0.
  * @property {number} unminimizeTimeoutId - Pending Chromium refresh.
  * @property {boolean} suspended - Hidden behind an opaque window that
@@ -123,7 +123,7 @@ export function createState(actor, win) {
         texture: null,
         emitters: new Set(),
         app: null,
-        detecting: false,
+        detection: null,
         pid: 0,
         unminimizeTimeoutId: 0,
         suspended: false,

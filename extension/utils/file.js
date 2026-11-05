@@ -3,24 +3,13 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
+// GNOME Shell promisifies some of these itself, load_contents_async only
+// as a side effect of loading the login dialog. Do it here, so this module
+// works on its own and under `gjs -m`.
+Gio._promisify(Gio.File.prototype, 'load_contents_async');
 Gio._promisify(Gio.File.prototype, 'read_async');
 Gio._promisify(Gio.InputStream.prototype, 'read_bytes_async');
 Gio._promisify(Gio.InputStream.prototype, 'close_async');
-
-/**
- * Read file contents as a string.
- *
- * @param {string} path - The path to the file to be read.
- * @returns {Promise<string>} Contents of the file as a UTF-8 string.
- */
-export async function readFile(path) {
-    const file = Gio.File.new_for_path(path);
-
-    const [contents] = await file.load_contents_async(null);
-
-    const decoder = new TextDecoder('utf-8');
-    return decoder.decode(contents);
-}
 
 /**
  * Search a file for the first of several markers, reading it in chunks and
@@ -78,11 +67,12 @@ export async function findInFile(path, markers, chunkSize = 64 * 1024) {
  * @param {string} path - File path relative to the current module.
  * @returns {Promise<string>} Contents of the file as a UTF-8 string.
  */
-export function readRelativeFile(module, path) {
-    const basedir = GLib.path_get_dirname(module);
-    const fileUri = GLib.build_filenamev([basedir, path]);
-    const filePath = GLib.filename_from_uri(fileUri)[0];
-    return readFile(filePath ?? '');
+export async function readRelativeFile(module, path) {
+    const file = Gio.File.new_for_uri(
+        GLib.uri_resolve_relative(module, path, GLib.UriFlags.NONE),
+    );
+    const [contents] = await file.load_contents_async(null);
+    return new TextDecoder('utf-8').decode(contents);
 }
 
 /**

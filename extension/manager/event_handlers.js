@@ -118,9 +118,7 @@ export function onMinimize(state) {
     const magicLampEffect = state.actor.get_effect('minimize-magic-lamp-effect');
     if (magicLampEffect && state.shadow && state.effect) {
         logDebug('Minimizing with magic lamp effect');
-        state.lampHidden = true;
-        syncShadowVisible(state);
-        state.effect.enabled = false;
+        setLampHidden(state, true);
     }
 }
 
@@ -136,7 +134,31 @@ export function onMinimize(state) {
  */
 export function applySuspended(state) {
     logDebug(() => `${state.suspended ? 'Pausing' : 'Resuming'} ${state.win.wmClass}`);
-    if (state.effect && !state.lampHidden) state.effect.enabled = !state.suspended;
+    syncEffectEnabled(state);
+    syncShadowVisible(state);
+}
+
+/**
+ * Turn the corners off while the window is paused or in a magic lamp
+ * animation. A disabled effect costs nothing, and Mutter culls the window
+ * again (see meta-cullable.c).
+ *
+ * @param {WindowState} state - The window.
+ */
+function syncEffectEnabled(state) {
+    if (state.effect)
+        state.effect.enabled = !state.suspended && !state.lampHidden;
+}
+
+/**
+ * Start or end hiding shadow and corners for a magic lamp animation.
+ *
+ * @param {WindowState} state - The window.
+ * @param {boolean} hidden - Whether the animation runs.
+ */
+function setLampHidden(state, hidden) {
+    state.lampHidden = hidden;
+    syncEffectEnabled(state);
     syncShadowVisible(state);
 }
 
@@ -172,13 +194,10 @@ export function onUnminimize(state) {
     );
     if (!magicLampEffect && state.lampHidden) {
         // Minimized with the magic lamp, but restored without it.
-        state.lampHidden = false;
-        syncShadowVisible(state);
-        if (state.effect) state.effect.enabled = !state.suspended;
+        setLampHidden(state, false);
     }
     if (magicLampEffect && state.shadow && state.effect) {
-        state.lampHidden = true;
-        syncShadowVisible(state);
+        setLampHidden(state, true);
         const timer = magicLampEffect.timerId;
 
         timer.connectObject(
@@ -187,9 +206,7 @@ export function onUnminimize(state) {
                 // Wait until the effect is 98% completed
                 if (source.get_progress() > 0.98) {
                     logDebug('Unminimizing with magic lamp effect');
-                    state.lampHidden = false;
-                    syncShadowVisible(state);
-                    if (state.effect) state.effect.enabled = !state.suspended;
+                    setLampHidden(state, false);
                     timer.disconnectObject(state);
                     state.emitters.delete(timer);
                 }
@@ -321,31 +338,31 @@ function syncTexture(state) {
  * window class right away.
  *
  * @param {WindowState} state - The window.
- * @param {() => void} [then] - Runs after the result arrived.
+ * @param {() => void} [then] - Runs after the result arrived, also when the
+ *   detection was already running. Not run if the window went away.
  */
 function startAppDetection(state, then) {
-    if (state.app) {
-        then?.();
-        return;
+    if (!state.app && !state.detection) {
+        const pid = state.win.get_pid();
+        if (isGame(state.win) || pid <= 0) {
+            state.app = {type: 'Other', chromium: false};
+            queueUpdate(state, STATE);
+        } else {
+            state.pid = pid;
+            state.detection = whenAlive(
+                state,
+                detectApp(state.win, pid),
+                app => {
+                    state.app = app;
+                    state.detection = null;
+                    queueUpdate(state, STATE);
+                },
+            );
+        }
     }
-    if (state.detecting) return;
 
-    const pid = state.win.get_pid();
-    if (isGame(state.win) || pid <= 0) {
-        state.app = {type: 'Other', chromium: false};
-        queueUpdate(state, STATE);
-        then?.();
-        return;
-    }
-
-    state.detecting = true;
-    state.pid = pid;
-    whenAlive(state, detectApp(state.win, pid), app => {
-        state.app = app;
-        state.detecting = false;
-        queueUpdate(state, STATE);
-        then?.();
-    });
+    if (state.app) then?.();
+    else if (then) state.detection.then(() => state.app && then());
 }
 
 /**
@@ -410,6 +427,9 @@ function removeEffect(state) {
 
     state.shadow?.destroy();
     state.shadow = null;
+    // Only a window with the effect hides it for a magic lamp animation.
+    // A new effect must not start disabled.
+    state.lampHidden = false;
 
     if (state.unminimizeTimeoutId) {
         GLib.source_remove(state.unminimizeTimeoutId);
@@ -483,7 +503,7 @@ function updateEffect(state) {
 
     // A paused window keeps its uniforms up to date, so it looks right as
     // soon as it is visible again.
-    effect.enabled = !state.suspended;
+    syncEffectEnabled(state);
 
     const cfg = getRoundedCornersCfg(win);
     const windowContentOffset = computeWindowContentsOffset(win);

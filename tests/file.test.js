@@ -1,9 +1,9 @@
-// Tests for findInFile in extension/utils/file.js.
+// Tests for extension/utils/file.js.
 
 import GLib from 'gi://GLib';
 
-import {findInFile} from '../extension/utils/file.js';
-import {equal, run, test} from './harness.js';
+import {findInFile, readShader} from '../extension/utils/file.js';
+import {equal, ok, run, test} from './harness.js';
 
 /**
  * Write a temporary file and return its path.
@@ -51,6 +51,17 @@ test('finds a marker across chunk borders', async () => {
 
 test('reads /proc maps of a process', async () => {
     equal(await findInFile('/proc/self/maps', ['libgjs']), 'libgjs');
+});
+
+test('splits the shader into declarations and main code', async () => {
+    const [declarations, code] = await readShader(
+        import.meta.url,
+        '../extension/effect/shader/rounded_corners.frag',
+    );
+    ok(declarations.includes('uniform vec4 bounds;'), 'declarations');
+    ok(!declarations.includes('void main'), 'main is not declared');
+    ok(code.includes('cogl_color_out'), 'main code');
+    ok(!/^[{}]/m.test(code), 'braces of main are removed');
 });
 
 await run('file.test.js');
