@@ -32,3 +32,34 @@ jobs:
         with:
           name: rounded-window-corners-ultimate@coffeebowl.shell-extension
           path: '*.shell-extension.zip'
+
+  smoke:
+    name: Run the smoke tests
+    runs-on: ubuntu-latest
+    # Pinned to the release with GNOME Shell 51. Privileged so that
+    # glycin can sandbox its image loaders with bwrap; the tests read
+    # their screenshots through GdkPixbuf.
+    container:
+      image: fedora:45
+      options: --privileged
+    steps:
+      - name: Install the shell and the test clients
+        run: >
+          dnf install -y make gettext gjs unzip
+          /usr/bin/gnome-extensions /usr/bin/glib-compile-resources
+          gnome-shell mesa-dri-drivers xorg-x11-server-Xwayland
+          glx-utils glycin-loaders dbus-daemon gnome-calculator
+
+      # The shell talks to the system bus and, if /run/systemd/seats
+      # exists, to logind. Without systemd running it must not exist.
+      - name: Start a system bus
+        run: |
+          rm -rf /run/systemd/seats
+          mkdir -p /run/dbus
+          dbus-daemon --system --fork
+
+      - name: Checkout the repository
+        uses: actions/checkout@v4
+
+      - name: Run the smoke tests
+        run: make smoke
