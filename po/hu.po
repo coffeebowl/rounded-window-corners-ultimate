@@ -22,21 +22,28 @@ msgid ""
 "Windows get the corners, outline and shadow of libadwaita windows. "
 "libadwaita apps draw them themselves and are left as they are."
 msgstr ""
+"Az ablakok a libadwaita ablakok sarkait, körvonalát és árnyékát kapják. A "
+"libadwaita alkalmazások ezeket maguk rajzolják, és változatlanok maradnak."
 
 #: extension/prefs.js:82
 msgid "Focus border"
-msgstr ""
+msgstr "Fókuszkeret"
 
 #: extension/prefs.js:83
 msgid ""
 "Marks the focused window with a border in the accent color of the system. It "
 "lies inside the window edge in place of the outline. Off by default."
 msgstr ""
+"Az aktív ablakot a rendszer kiemelőszínével jelöli meg egy keretben. A keret "
+"az ablak szélén belül, a körvonal helyén van. Alapértelmezetten ki van "
+"kapcsolva."
 
 #: extension/prefs.js:84
 msgid "Width"
-msgstr ""
+msgstr "Szélesség"
 
-#: extension/prefs.js:85
-msgid "In pixels. Default:"
-msgstr ""
+#. Translators: %d is the default width in pixels.
+#: extension/prefs.js:86
+#, javascript-format
+msgid "In pixels. Default: %d."
+msgstr "Képpontban. Alapértelmezett: %d."

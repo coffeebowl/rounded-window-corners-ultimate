@@ -21,21 +21,29 @@ msgid ""
 "Windows get the corners, outline and shadow of libadwaita windows. "
 "libadwaita apps draw them themselves and are left as they are."
 msgstr ""
+"Pencereler, libadwaita pencerelerinin köşelerini, dış çizgisini ve gölgesini "
+"alır. libadwaita uygulamaları bunları kendileri çizer ve olduğu gibi "
+"bırakılır."
 
 #: extension/prefs.js:82
 msgid "Focus border"
-msgstr ""
+msgstr "Odak çerçevesi"
 
 #: extension/prefs.js:83
 msgid ""
 "Marks the focused window with a border in the accent color of the system. It "
 "lies inside the window edge in place of the outline. Off by default."
 msgstr ""
+"Etkin pencereyi sistemin vurgu renginde bir çerçeveyle işaretler. Çerçeve, "
+"dış çizginin yerine pencere kenarının içinde yer alır. Öntanımlı olarak "
+"kapalıdır."
 
 #: extension/prefs.js:84
 msgid "Width"
-msgstr ""
+msgstr "Genişlik"
 
-#: extension/prefs.js:85
-msgid "In pixels. Default:"
-msgstr ""
+#. Translators: %d is the default width in pixels.
+#: extension/prefs.js:86
+#, javascript-format
+msgid "In pixels. Default: %d."
+msgstr "Piksel cinsinden. Öntanımlı: %d."

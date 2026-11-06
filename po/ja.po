@@ -21,21 +21,27 @@ msgid ""
 "Windows get the corners, outline and shadow of libadwaita windows. "
 "libadwaita apps draw them themselves and are left as they are."
 msgstr ""
+"ウィンドウに libadwaita ウィンドウと同じ角、輪郭線、影を付けます。libadwaita "
+"アプリはこれらを自分で描画するため、そのままにします。"
 
 #: extension/prefs.js:82
 msgid "Focus border"
-msgstr ""
+msgstr "フォーカス枠"
 
 #: extension/prefs.js:83
 msgid ""
 "Marks the focused window with a border in the accent color of the system. It "
 "lies inside the window edge in place of the outline. Off by default."
 msgstr ""
+"フォーカスのあるウィンドウをシステムのアクセントカラーの枠で示します。枠は輪"
+"郭線の代わりにウィンドウの縁の内側に描かれます。標準ではオフです。"
 
 #: extension/prefs.js:84
 msgid "Width"
-msgstr ""
+msgstr "幅"
 
-#: extension/prefs.js:85
-msgid "In pixels. Default:"
-msgstr ""
+#. Translators: %d is the default width in pixels.
+#: extension/prefs.js:86
+#, javascript-format
+msgid "In pixels. Default: %d."
+msgstr "ピクセル単位。標準: %d"

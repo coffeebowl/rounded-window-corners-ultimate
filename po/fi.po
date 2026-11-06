@@ -21,21 +21,27 @@ msgid ""
 "Windows get the corners, outline and shadow of libadwaita windows. "
 "libadwaita apps draw them themselves and are left as they are."
 msgstr ""
+"Ikkunat saavat libadwaita-ikkunoiden kulmat, reunaviivan ja varjon. "
+"libadwaita-sovellukset piirtävät ne itse, ja ne jätetään ennalleen."
 
 #: extension/prefs.js:82
 msgid "Focus border"
-msgstr ""
+msgstr "Kohdistuksen kehys"
 
 #: extension/prefs.js:83
 msgid ""
 "Marks the focused window with a border in the accent color of the system. It "
 "lies inside the window edge in place of the outline. Off by default."
 msgstr ""
+"Merkitsee aktiivisen ikkunan kehyksellä järjestelmän korostusvärissä. Kehys "
+"on ikkunan reunan sisäpuolella reunaviivan paikalla. Oletuksena pois päältä."
 
 #: extension/prefs.js:84
 msgid "Width"
-msgstr ""
+msgstr "Leveys"
 
-#: extension/prefs.js:85
-msgid "In pixels. Default:"
-msgstr ""
+#. Translators: %d is the default width in pixels.
+#: extension/prefs.js:86
+#, javascript-format
+msgid "In pixels. Default: %d."
+msgstr "Pikseleinä. Oletus: %d."

@@ -22,21 +22,27 @@ msgid ""
 "Windows get the corners, outline and shadow of libadwaita windows. "
 "libadwaita apps draw them themselves and are left as they are."
 msgstr ""
+"As janelas recebem os cantos, o contorno e a sombra das janelas libadwaita. "
+"Aplicativos libadwaita os desenham por conta própria e ficam como estão."
 
 #: extension/prefs.js:82
 msgid "Focus border"
-msgstr ""
+msgstr "Borda de foco"
 
 #: extension/prefs.js:83
 msgid ""
 "Marks the focused window with a border in the accent color of the system. It "
 "lies inside the window edge in place of the outline. Off by default."
 msgstr ""
+"Marca a janela ativa com uma borda na cor de realce do sistema. Ela fica no "
+"interior da janela, no lugar do contorno. Desligada por padrão."
 
 #: extension/prefs.js:84
 msgid "Width"
-msgstr ""
+msgstr "Largura"
 
-#: extension/prefs.js:85
-msgid "In pixels. Default:"
-msgstr ""
+#. Translators: %d is the default width in pixels.
+#: extension/prefs.js:86
+#, javascript-format
+msgid "In pixels. Default: %d."
+msgstr "Em pixels. Padrão: %d."

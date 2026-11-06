@@ -22,21 +22,27 @@ msgid ""
 "Windows get the corners, outline and shadow of libadwaita windows. "
 "libadwaita apps draw them themselves and are left as they are."
 msgstr ""
+"Okna dostanou rohy, obrys a stín oken libadwaita. Aplikace libadwaita si je "
+"kreslí samy a zůstávají beze změny."
 
 #: extension/prefs.js:82
 msgid "Focus border"
-msgstr ""
+msgstr "Rámeček zaměření"
 
 #: extension/prefs.js:83
 msgid ""
 "Marks the focused window with a border in the accent color of the system. It "
 "lies inside the window edge in place of the outline. Off by default."
 msgstr ""
+"Označí aktivní okno rámečkem v barevném odstínu systému. Leží uvnitř okraje "
+"okna na místě obrysu. Ve výchozím stavu vypnuto."
 
 #: extension/prefs.js:84
 msgid "Width"
-msgstr ""
+msgstr "Šířka"
 
-#: extension/prefs.js:85
-msgid "In pixels. Default:"
-msgstr ""
+#. Translators: %d is the default width in pixels.
+#: extension/prefs.js:86
+#, javascript-format
+msgid "In pixels. Default: %d."
+msgstr "V pixelech. Výchozí: %d."

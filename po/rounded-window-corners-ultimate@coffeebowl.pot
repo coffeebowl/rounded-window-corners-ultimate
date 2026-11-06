@@ -41,6 +41,8 @@ msgstr ""
 msgid "Width"
 msgstr ""
 
-#: extension/prefs.js:85
-msgid "In pixels. Default:"
+#. Translators: %d is the default width in pixels.
+#: extension/prefs.js:86
+#, javascript-format
+msgid "In pixels. Default: %d."
 msgstr ""

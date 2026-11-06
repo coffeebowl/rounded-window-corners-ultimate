@@ -82,7 +82,8 @@ export default class RoundedWindowCornersUltimatePrefs extends ExtensionPreferen
         page.add(featureGroup(settings, 'focus-border', _('Focus border'),
             _('Marks the focused window with a border in the accent color of the system. It lies inside the window edge in place of the outline. Off by default.'), [
                 intRow(settings, 'focus-border-width', _('Width'),
-                    `${_('In pixels. Default:')} ${defaultWidth}.`),
+                    // Translators: %d is the default width in pixels.
+                    _('In pixels. Default: %d.').replace('%d', defaultWidth)),
             ]));
         window.add(page);
     }
