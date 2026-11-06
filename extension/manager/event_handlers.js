@@ -8,9 +8,9 @@
 import Clutter from 'gi://Clutter';
 import GLib from 'gi://GLib';
 import GObject from 'gi://GObject';
-import St from 'gi://St';
 
 import {RoundedCornersEffect} from '../effect/rounded_corners_effect.js';
+import {ShadowActor} from '../effect/shadow_actor.js';
 import {ROUNDED_CORNERS_EFFECT, WOBBLY_EFFECT} from '../utils/constants.js';
 import {logDebug} from '../utils/log.js';
 import {
@@ -467,20 +467,12 @@ function removeEffect(state) {
  * Create the shadow actor for a window.
  *
  * @param {import('gi://Meta').default.WindowActor} actor - The window actor to create the shadow actor for.
- * @returns {St.Bin}
+ * @returns {ShadowActor}
  */
 function createShadow(actor) {
-    const shadow = new St.Bin({
-        name: 'Shadow Actor',
-        child: new St.Bin({
-            xExpand: true,
-            yExpand: true,
-        }),
-    });
-    // The class only sets the cross-fade when the focus changes. The image
-    // has a transparent middle, so nothing shows through behind the window
-    // (https://gitlab.gnome.org/GNOME/gnome-shell/-/issues/4474).
-    shadow.firstChild.add_style_class_name('shadow');
+    // The shadow has a transparent middle, so nothing shows through behind
+    // the window (https://gitlab.gnome.org/GNOME/gnome-shell/-/issues/4474).
+    const shadow = new ShadowActor({name: 'Shadow Actor'});
 
     // Draw the shadow actor below the window actor.
     global.windowGroup.insert_child_below(shadow, actor);

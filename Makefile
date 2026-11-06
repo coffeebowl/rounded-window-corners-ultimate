@@ -34,6 +34,8 @@ smoke:
 		tests/run-smoke.sh wayland
 	RWC_SMOKE_MONITOR=1920x1080 RWC_SMOKE_SCRIPT=$(CURDIR)/tests/border-smoke.js \
 		tests/run-smoke.sh x11
+	RWC_SMOKE_MONITOR=1920x1080 RWC_SMOKE_SCRIPT=$(CURDIR)/tests/scale-smoke.js \
+		tests/run-smoke.sh wayland
 	RWC_SMOKE_MONITOR=1920x1080 RWC_SMOKE_SCRIPT=$(CURDIR)/tests/adw-smoke.js \
 		tests/run-smoke.sh wayland
 	RWC_SMOKE_SCRIPT=$(CURDIR)/tests/prefs-smoke.js tests/run-smoke.sh wayland

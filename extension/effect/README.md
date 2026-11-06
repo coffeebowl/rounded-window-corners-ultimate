@@ -14,6 +14,12 @@ This effect loads the actual Fragment shader that rounds the corners and draws
 the border inside the window edge. The class applies the effect and provides a
 function to change uniforms passed to the effect.
 
+## `shadow_actor.js`
+
+The actor that draws a window's shadow: a pre-rendered image, 9-sliced around
+the window, at the resolution of the monitor's scale. It cross-fades between
+the focused and unfocused shadow.
+
 ## `shader`
 
 This is the directory where the Fragment shaders are stored.

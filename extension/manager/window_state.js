@@ -31,7 +31,7 @@ export const DEFORM = 16;
  *   The rounded corners effect, if the window has it.
  * @property {import('gi://Clutter').default.Actor | null} effectActor -
  *   The actor the effect was added to, see `unwrapActor` in utils.js.
- * @property {import('gi://St').default.Bin | null} shadow - The shadow actor.
+ * @property {import('../effect/shadow_actor.js').ShadowActor | null} shadow - The shadow actor.
  * @property {import('gi://GObject').default.Binding[]} bindings -
  *   Property bindings from the window actor to the shadow.
  * @property {import('gi://GObject').default.Object | null} texture -

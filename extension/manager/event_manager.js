@@ -10,7 +10,8 @@ import St from 'gi://St';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import {logDebug, logError} from '../utils/log.js';
-import {clearShadowImages} from '../utils/shadow_files.js';
+import {clearShadowTextures} from '../effect/shadow_actor.js';
+import {removeOldShadowFiles} from '../utils/file.js';
 import {focusBorderWidth, settings} from '../utils/settings.js';
 import {findCovered} from './coverage.js';
 import * as handlers from './event_handlers.js';
@@ -60,7 +61,7 @@ let accentColor = '';
  */
 export function enableEffect() {
     try {
-        clearShadowImages();
+        removeOldShadowFiles();
     } catch (e) {
         logError(e);
     }
@@ -164,6 +165,7 @@ export function disableEffect() {
     coveragePausedBy.clear();
 
     for (const state of [...states.values()]) untrack(state);
+    clearShadowTextures();
 
     settings?.disconnectObject(owner);
     St.ThemeContext.get_for_stage(global.stage).disconnectObject(owner);

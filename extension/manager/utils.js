@@ -16,7 +16,6 @@ import {
 import {SHADOW_PADDING} from '../utils/constants.js';
 import {findInFile} from '../utils/file.js';
 import {logDebug, logError} from '../utils/log.js';
-import {shadowImage} from '../utils/shadow_files.js';
 import {focusBorderWidth} from '../utils/settings.js';
 
 /**
@@ -49,14 +48,18 @@ export function unwrapActor(actor) {
     return null;
 }
 
+/** Shadow styles, created once so shadow actors can compare them. */
+const FOCUSED_STYLE = Object.freeze({radius: RADIUS, layers: FOCUSED_SHADOW});
+const UNFOCUSED_STYLE = Object.freeze({radius: RADIUS, layers: UNFOCUSED_SHADOW});
+
 /**
  * Get the shadow for a window.
  *
  * @param {import('gi://Meta').default.Window} win - The window.
- * @returns {readonly import('../utils/shadow_texture.js').ShadowLayer[]}
+ * @returns {import('../utils/shadow_texture.js').ShadowStyle}
  */
 export function getShadowCfg(win) {
-    return win.appears_focused ? FOCUSED_SHADOW : UNFOCUSED_SHADOW;
+    return win.appears_focused ? FOCUSED_STYLE : UNFOCUSED_STYLE;
 }
 
 /**
@@ -150,24 +153,16 @@ export function computeShadowActorOffset([
 }
 
 /**
- * Update the CSS style of a shadow actor.
+ * Show the right shadow on a shadow actor.
  *
- * The shadow is a pre-rendered image drawn as a 9-slice border image
- * around the window, see utils/shadow_texture.js. The image reaches
- * SHADOW_PADDING beyond the window box, so the inner actor fills the whole
- * shadow actor.
- *
- * @param {import('gi://Meta').default.Window} win - The window to update the style for.
- * @param {import('gi://St').default.Bin} actor - The shadow actor to update the style for.
- * @param {readonly import('../utils/shadow_texture.js').ShadowLayer[]} shadow - The shadow of the window.
+ * @param {import('gi://Meta').default.Window} win - The window to update the shadow for.
+ * @param {import('../effect/shadow_actor.js').ShadowActor} actor - Its shadow actor.
+ * @param {import('../utils/shadow_texture.js').ShadowStyle} style - The shadow of the window.
  * @returns {boolean} Whether the shadow should be hidden, for maximized and
  *   fullscreen windows.
  */
-export function updateShadowActorStyle(win, actor, shadow) {
-    const image = shadowImage({radius: RADIUS, layers: shadow});
-    const childStyle = `border-image: url("${image.uri}") ${image.slice};`;
-    const child = actor.firstChild;
-    if (child.style !== childStyle) child.style = childStyle;
+export function updateShadowActorStyle(win, actor, style) {
+    actor.setStyle(style);
 
     return (
         win.maximizedHorizontally ||

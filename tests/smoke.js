@@ -64,8 +64,7 @@ export async function run() {
     for (const actor of actors) {
         const {shadow} = states.get(actor);
         check(
-            shadow.get_effects().length === 0 &&
-                shadow.firstChild.get_effects().length === 0,
+            shadow.get_effects().length === 0,
             'Shadow actors must not have effects',
         );
     }

@@ -1,4 +1,4 @@
-/** @file Contains utility functions for reading file contents. */
+/** @file Contains utility functions for reading and removing files. */
 
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
@@ -91,4 +91,28 @@ export async function readShader(module, path) {
     declarations = declarations.trim();
     code = code.trim().replace(/^[{}]/gm, '').trim();
     return [declarations, code];
+}
+
+/**
+ * Delete the shadow images that versions up to 51.0 kept in the cache
+ * directory. Shadows are textures in memory now.
+ */
+export function removeOldShadowFiles() {
+    const directory = GLib.build_filenamev([
+        GLib.get_user_cache_dir(),
+        'rwc-ultimate',
+    ]);
+    if (!GLib.file_test(directory, GLib.FileTest.IS_DIR)) return;
+
+    const dir = GLib.Dir.open(directory, 0);
+    try {
+        let name;
+        while ((name = dir.read_name()) !== null) {
+            if (/^shadow-[0-9a-f]{8}\.png$/.test(name))
+                GLib.unlink(GLib.build_filenamev([directory, name]));
+        }
+    } finally {
+        dir.close();
+    }
+    GLib.rmdir(directory);
 }

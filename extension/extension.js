@@ -53,7 +53,7 @@ export default class RoundedWindowCornersUltimate extends Extension {
 
         // WindowPreview is a widget that shows a window in the overview.
         // We need to override its `_addWindow` method to add a shadow actor
-        // to the preview, otherwise overview windows won't have custom
+        // to the preview, otherwise overview windows won't have our
         // shadows.
         this.#injectionManager.overrideMethod(
             WindowPreview.prototype,

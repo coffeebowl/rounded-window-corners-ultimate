@@ -1,7 +1,0 @@
-/* Cross-fade between the focused and unfocused shadow image, as long as
- * libadwaita's (window.csd:backdrop). St fades any change of what a widget
- * paints, the property name is not checked, and always eases in and out
- * (st-theme-node-transition.c). */
-.shadow {
-    transition-duration: 200ms;
-}

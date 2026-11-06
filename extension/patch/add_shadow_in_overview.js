@@ -105,7 +105,7 @@ const OverviewShadowActorClone = GObject.registerClass(
         /**
          * Create the clone of the shadow actor.
          *
-         * @param {import('gi://St').default.Bin} source - The shadow actor to clone.
+         * @param {import('../effect/shadow_actor.js').ShadowActor} source - The shadow actor to clone.
          * @param {import('resource:///org/gnome/shell/ui/windowPreview.js').WindowPreview} windowPreview - The window preview that the clone is applied to.
          */
         constructor(source, windowPreview) {

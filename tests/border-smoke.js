@@ -15,6 +15,7 @@ import Shell from 'gi://Shell';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
 
+import {setScale} from './display.js';
 import {ok as check} from './harness.js';
 
 /** @returns {Promise<GdkPixbuf.Pixbuf>} The whole stage. */
@@ -70,61 +71,6 @@ function borderAmount(image, x, y, dx, dy, count) {
     return sum;
 }
 
-/**
- * @param {string} method
- * @param {GLib.Variant | null} params
- * @returns {Promise<GLib.Variant>}
- */
-function callDisplayConfig(method, params) {
-    return new Promise((resolve, reject) => {
-        Gio.DBus.session.call(
-            'org.gnome.Mutter.DisplayConfig',
-            '/org/gnome/Mutter/DisplayConfig',
-            'org.gnome.Mutter.DisplayConfig',
-            method,
-            params,
-            null,
-            Gio.DBusCallFlags.NONE,
-            -1,
-            null,
-            (connection, result) => {
-                try {
-                    resolve(connection.call_finish(result));
-                } catch (e) {
-                    reject(e);
-                }
-            },
-        );
-    });
-}
-
-/**
- * Switch the monitor to a scale, if its mode supports it.
- *
- * @param {number} wanted
- * @returns {Promise<boolean>} Whether the scale is supported.
- */
-async function setScale(wanted) {
-    const state = await callDisplayConfig('GetCurrentState', null);
-    const [serial, monitors] = state.deepUnpack();
-    const [[connector], [mode]] = monitors[0];
-    const [modeId, , , , , scales] = mode;
-    const scale = scales.find(s => Math.abs(s - wanted) < 0.01);
-    if (!scale) return false;
-
-    await callDisplayConfig(
-        'ApplyMonitorsConfig',
-        variant('(uua(iiduba(ssa{sv}))a{sv})', [
-            serial,
-            1, // temporary
-            [[0, 0, scale, 0, true, [[connector, modeId, {}]]]],
-            {},
-        ]),
-    );
-    return true;
-}
-
-const variant = (type, value) => new GLib.Variant(type, value);
 
 export async function run() {
     const background = new Gio.Settings({

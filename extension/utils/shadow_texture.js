@@ -1,12 +1,15 @@
 /**
- * @file Renders the image for a window shadow, to be drawn as a 9-slice
- * border image around the window.
+ * @file Renders the image for a window shadow, to be 9-sliced around the
+ * window by effect/shadow_actor.js.
  *
  * The shadow follows CSS box-shadow as GTK draws it for libadwaita windows
  * (gskgpuboxshadow.glsl in GTK 4.24): every layer is the window's rounded
  * box, grown by the spread with the corner radius grown alike, blurred
  * with a Gaussian of sigma = blur / 2. Layers are painted over each other.
  * Like CSS, the shadow is not drawn inside the window box.
+ *
+ * The image is symmetric, so only its top left quarter is computed and
+ * then mirrored.
  *
  * This module has no imports, so it can be unit tested with `gjs -m`.
  */
@@ -29,13 +32,13 @@
 
 /**
  * @typedef {object} ShadowImage
- * @property {number} width - Image width in pixels.
- * @property {number} height - Image height in pixels.
- * @property {Uint8Array} pixels - RGBA rows, not premultiplied.
+ * @property {number} size - Width and height in pixels.
+ * @property {Uint8Array} pixels - RGBA rows. The shadow is black, so they
+ *   are the same premultiplied or not.
  * @property {number} margin - How far the image reaches beyond the window
- *   box on every side.
- * @property {number} slice - Width of each border slice. The middle row and
- *   column are one pixel and get stretched.
+ *   box on every side, in pixels.
+ * @property {number} slice - Width of each border slice in pixels. The
+ *   middle row and column are one pixel and get stretched.
  */
 
 /** Samples per axis for anti-aliased coverage. */
@@ -60,6 +63,18 @@ const GAUSS_REACH = 3;
  * @returns {number}
  */
 function roundedRectCoverage(px, py, x1, y1, x2, y2, r) {
+    // Most pixels lie clearly outside, or inside away from the corners.
+    if (px + 1 <= x1 || px >= x2 || py + 1 <= y1 || py >= y2) return 0;
+    if (
+        px >= x1 &&
+        px + 1 <= x2 &&
+        py >= y1 &&
+        py + 1 <= y2 &&
+        ((px >= x1 + r && px + 1 <= x2 - r) ||
+            (py >= y1 + r && py + 1 <= y2 - r))
+    )
+        return 1;
+
     let inside = 0;
     for (let sy = 0; sy < SUPERSAMPLING; sy++) {
         const y = py + (sy + 0.5) / SUPERSAMPLING;
@@ -79,15 +94,16 @@ function roundedRectCoverage(px, py, x1, y1, x2, y2, r) {
 }
 
 /**
- * Blur a single-channel image in place with a Gaussian, treating pixels
- * outside the image as 0.
+ * Blur the top left quarter of a symmetric image in place with a Gaussian.
+ * Beyond the middle row and column the image is mirrored, beyond the outer
+ * edges it is 0.
  *
- * @param {Float32Array} data - The image, row by row.
- * @param {number} width
- * @param {number} height
+ * @param {Float32Array} data - The quarter, `q` by `q`, row by row. Row and
+ *   column `q - 1` are the middle of the image.
+ * @param {number} q
  * @param {number} sigma
  */
-function gaussianBlur(data, width, height, sigma) {
+function blurQuarter(data, q, sigma) {
     if (sigma <= 0) return;
 
     const reach = Math.ceil(sigma * GAUSS_REACH);
@@ -99,27 +115,49 @@ function gaussianBlur(data, width, height, sigma) {
     }
     for (let i = 0; i < kernel.length; i++) kernel[i] /= sum;
 
+    const mid = q - 1;
+    /** Index in the quarter for a position along one axis, or -1. */
+    const fold = i => (i < 0 ? -1 : i > mid ? (2 * mid - i >= 0 ? 2 * mid - i : -1) : i);
+
     const tmp = new Float32Array(data.length);
-    for (let y = 0; y < height; y++) {
-        for (let x = 0; x < width; x++) {
+    for (let y = 0; y < q; y++) {
+        for (let x = 0; x < q; x++) {
             let v = 0;
             for (let k = -reach; k <= reach; k++) {
-                const xx = x + k;
-                if (xx >= 0 && xx < width) v += data[y * width + xx] * kernel[k + reach];
+                const xx = fold(x + k);
+                if (xx >= 0) v += data[y * q + xx] * kernel[k + reach];
             }
-            tmp[y * width + x] = v;
+            tmp[y * q + x] = v;
         }
     }
-    for (let y = 0; y < height; y++) {
-        for (let x = 0; x < width; x++) {
+    for (let y = 0; y < q; y++) {
+        for (let x = 0; x < q; x++) {
             let v = 0;
             for (let k = -reach; k <= reach; k++) {
-                const yy = y + k;
-                if (yy >= 0 && yy < height) v += tmp[yy * width + x] * kernel[k + reach];
+                const yy = fold(y + k);
+                if (yy >= 0) v += tmp[yy * q + x] * kernel[k + reach];
             }
-            data[y * width + x] = v;
+            data[y * q + x] = v;
         }
     }
+}
+
+/**
+ * Scale a style, for an image with more pixels per window pixel.
+ *
+ * @param {ShadowStyle} style
+ * @param {number} scale
+ * @returns {ShadowStyle}
+ */
+function scaleStyle(style, scale) {
+    return {
+        radius: style.radius * scale,
+        layers: style.layers.map(l => ({
+            blur: l.blur * scale,
+            spread: l.spread * scale,
+            alpha: l.alpha,
+        })),
+    };
 }
 
 /**
@@ -133,17 +171,15 @@ function layerReach(layer) {
 }
 
 /**
- * Work out the image layout for a style.
+ * Work out the image layout for a style: the image reaches as far beyond
+ * the window box as the shadow.
  *
  * @param {ShadowStyle} style - How the shadow looks.
- * @param {number} [margin] - How far the image reaches beyond the window
- *   box. The shadow is cut off there. By default just as far as the
- *   shadow reaches.
  * @returns {{margin: number, corner: number, slice: number, size: number}}
  *   `corner` is how far from a box corner the shadow still differs from the
  *   straight edges.
  */
-export function shadowLayout(style, margin) {
+export function shadowLayout(style) {
     const radius = Math.max(0, style.radius);
     let reach = 0;
     let inward = 0;
@@ -154,26 +190,26 @@ export function shadowLayout(style, margin) {
         const blur = (Math.max(0, layer.blur) / 2) * GAUSS_REACH;
         inward = Math.max(inward, radius + Math.max(layer.spread, 0) + blur);
     }
-    const m = margin ?? Math.ceil(reach) + 1;
+    const m = Math.ceil(reach) + 1;
     const corner = Math.ceil(inward) + 2;
     return {margin: m, corner, slice: m + corner, size: (m + corner) * 2 + 1};
 }
 
 /**
- * Render the alpha of one layer.
+ * Render the alpha of one layer, top left quarter only.
  *
  * @param {ShadowLayer} layer
  * @param {number} radius - Corner radius of the window box.
  * @param {{x1: number, y1: number, x2: number, y2: number}} box - The window box.
- * @param {number} size - Size of the square output image.
+ * @param {number} q - Size of the quarter.
  * @returns {Float32Array}
  */
-function renderLayer(layer, radius, box, size) {
+function renderLayer(layer, radius, box, q) {
     const {spread} = layer;
-    const out = new Float32Array(size * size);
-    for (let y = 0; y < size; y++) {
-        for (let x = 0; x < size; x++) {
-            out[y * size + x] = roundedRectCoverage(
+    const out = new Float32Array(q * q);
+    for (let y = 0; y < q; y++) {
+        for (let x = 0; x < q; x++) {
+            out[y * q + x] = roundedRectCoverage(
                 x,
                 y,
                 box.x1 - spread,
@@ -184,43 +220,46 @@ function renderLayer(layer, radius, box, size) {
             );
         }
     }
-    gaussianBlur(out, size, size, Math.max(0, layer.blur) / 2);
+    blurQuarter(out, q, Math.max(0, layer.blur) / 2);
     return out;
 }
 
 /**
  * Render the shadow image for a style.
  *
- * @param {ShadowStyle} style - How the shadow looks.
- * @param {number} [fixedMargin] - See {@link shadowLayout}.
+ * @param {ShadowStyle} style - How the shadow looks, in window pixels.
+ * @param {number} [scale] - Image pixels per window pixel, for example 2
+ *   for a sharp shadow at 200 %.
  * @returns {ShadowImage}
  */
-export function renderShadow(style, fixedMargin) {
-    const radius = Math.max(0, style.radius);
-    const {margin, corner, size} = shadowLayout(style, fixedMargin);
+export function renderShadow(style, scale = 1) {
+    const scaled = scaleStyle(style, scale);
+    const radius = Math.max(0, scaled.radius);
+    const {margin, corner, slice, size} = shadowLayout(scaled);
 
     const side = corner * 2 + 1;
     const box = {x1: margin, y1: margin, x2: margin + side, y2: margin + side};
+    const q = slice + 1;
 
     // Black layers over each other: what shows through all of them is the
     // product of their transparencies.
-    const clear = new Float32Array(size * size).fill(1);
-    for (const layer of style.layers) {
+    const clear = new Float32Array(q * q).fill(1);
+    for (const layer of scaled.layers) {
         const alpha = Math.min(Math.max(layer.alpha, 0), 1);
         if (alpha <= 0) continue;
-        const shape = renderLayer(layer, radius, box, size);
+        const shape = renderLayer(layer, radius, box, q);
         for (let i = 0; i < clear.length; i++) clear[i] *= 1 - shape[i] * alpha;
     }
 
-    // The shadow reaches this far under the window, so it still lies below
-    // the window's antialiased edge. Further in it is transparent, which
-    // keeps it out of translucent windows.
-    const inset = 1;
+    // The shadow reaches one window pixel under the window, so it still
+    // lies below the window's antialiased edge. Further in it is
+    // transparent, which keeps it out of translucent windows.
+    const inset = scale;
 
-    const pixels = new Uint8Array(size * size * 4);
-    for (let y = 0; y < size; y++) {
-        for (let x = 0; x < size; x++) {
-            const i = y * size + x;
+    const quarter = new Uint8Array(q * q);
+    for (let y = 0; y < q; y++) {
+        for (let x = 0; x < q; x++) {
+            const i = y * q + x;
             const inside = roundedRectCoverage(
                 x,
                 y,
@@ -230,29 +269,18 @@ export function renderShadow(style, fixedMargin) {
                 box.y2 - inset,
                 Math.max(radius - inset, 0),
             );
-            pixels[i * 4 + 3] = Math.round((1 - clear[i]) * (1 - inside) * 255);
+            quarter[i] = Math.round((1 - clear[i]) * (1 - inside) * 255);
         }
     }
 
-    return {width: size, height: size, pixels, margin, slice: margin + corner};
-}
-
-/**
- * A short, stable hash of a shadow style, for file names.
- *
- * @param {ShadowStyle} style
- * @returns {string}
- */
-export function shadowKey(style) {
-    const text = JSON.stringify([
-        4, // Bump when the rendering changes.
-        style.radius,
-        style.layers.map(l => [l.blur, l.spread, l.alpha]),
-    ]);
-    let hash = 0x811c9dc5;
-    for (let i = 0; i < text.length; i++) {
-        hash ^= text.charCodeAt(i);
-        hash = Math.imul(hash, 0x01000193) >>> 0;
+    const pixels = new Uint8Array(size * size * 4);
+    for (let y = 0; y < size; y++) {
+        const qy = Math.min(y, size - 1 - y);
+        for (let x = 0; x < size; x++) {
+            const qx = Math.min(x, size - 1 - x);
+            pixels[(y * size + x) * 4 + 3] = quarter[qy * q + qx];
+        }
     }
-    return hash.toString(16).padStart(8, '0');
+
+    return {size, pixels, margin, slice};
 }
