@@ -6,5 +6,5 @@
     "gettext-domain": "rounded-window-corners-ultimate@coffeebowl",
     "settings-schema": "org.gnome.shell.extensions.rounded-window-corners-ultimate",
     "shell-version": ["51"],
-    "version-name": "51.0"
+    "version-name": "51.1"
 }
