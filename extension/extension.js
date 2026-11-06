@@ -22,8 +22,7 @@ import {
     removeWorkspaceShadows,
 } from './patch/workspace_switch.js';
 import {logDebug} from './utils/log.js';
-import {initPrefs, uninitPrefs} from './utils/settings.js';
-import {WindowPicker} from './window_picker/service.js';
+import {initSettings, uninitSettings} from './utils/settings.js';
 
 export default class RoundedWindowCornersUltimate extends Extension {
     // The extension works by overriding (monkey patching) the code of GNOME
@@ -33,19 +32,10 @@ export default class RoundedWindowCornersUltimate extends Extension {
     /** @type {InjectionManager | null} */
     #injectionManager = null;
 
-    /** @type {WindowPicker | null} */
-    #windowPicker = null;
-
     enable() {
-        // Initialize extension preferences
-        initPrefs(this.getSettings());
+        initSettings(this.getSettings());
 
         this.#injectionManager = new InjectionManager();
-
-        // Export the d-bus interface of the window picker in preferences.
-        // See the readme in the `window_picker` directory for more information.
-        this.#windowPicker = new WindowPicker();
-        this.#windowPicker.export();
 
         if (layoutManager._startingUp) {
             // Wait for GNOME Shell to be ready before enabling rounded corners
@@ -135,15 +125,12 @@ export default class RoundedWindowCornersUltimate extends Extension {
         removeOverviewShadows();
         removeWorkspaceShadows();
 
-        this.#windowPicker?.unexport();
-        this.#windowPicker = null;
-
         // In case the shell is still starting up.
         layoutManager.disconnectObject(this);
         disableEffect();
 
         logDebug('Disabled');
 
-        uninitPrefs();
+        uninitSettings();
     }
 }

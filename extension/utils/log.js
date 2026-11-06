@@ -1,6 +1,6 @@
 /** @file Provides wrapper functions for printing out debug messages. */
 
-import {getPref, prefs} from './settings.js';
+import {debugMode} from './settings.js';
 
 /**
  * Log a message with a [RWC Ultimate] prefix, but only when debug mode is
@@ -14,7 +14,7 @@ import {getPref, prefs} from './settings.js';
  *   returning it.
  */
 export function logDebug(message) {
-    if (!prefs || !getPref('debug-mode')) return;
+    if (!debugMode()) return;
 
     const text = typeof message === 'function' ? message() : message;
     console.log(`[RWC Ultimate] ${text}`);

@@ -18,10 +18,10 @@ import {
     computeShadowActorOffset,
     computeWindowContentsOffset,
     detectApp,
-    getRoundedCornersCfg,
+    getBorder,
     getShadowCfg,
     isGame,
-    needsAppType,
+    OTHER_APP,
     releaseApp,
     shouldEnableEffect,
     unwrapActor,
@@ -62,11 +62,11 @@ export function flush(state, bits) {
     const target = unwrapActor(actor);
     if (!target || win.wmClass === null || !state.texture) return;
 
-    if (state.app === null && needsAppType()) startAppDetection(state);
+    if (state.app === null) startAppDetection(state);
 
     // Everything except a focus change can decide whether the window has
-    // the effect: maximizing changes the size, fullscreen and settings
-    // change the rules, and so on.
+    // the effect: maximizing changes the size, fullscreen changes the
+    // rules, and so on.
     if (bits & ~FOCUS) {
         const wanted = shouldEnableEffect(win, state.app);
 
@@ -86,9 +86,10 @@ export function flush(state, bits) {
         if (wanted && !state.effect && hasSize)
             createEffect(state, target);
         else if (!wanted && state.effect) removeEffect(state);
-
-        if (state.effect) updateEffect(state);
     }
+
+    // The focus decides the border, so this runs on focus changes too.
+    if (state.effect) updateEffect(state);
 
     if (state.shadow) refreshShadow(state);
 }
@@ -146,8 +147,31 @@ export function applySuspended(state) {
  * @param {WindowState} state - The window.
  */
 function syncEffectEnabled(state) {
-    if (state.effect)
-        state.effect.enabled = !state.suspended && !state.lampHidden;
+    const {effect} = state;
+    if (!effect) return;
+
+    const enabled =
+        !state.suspended &&
+        !state.lampHidden &&
+        (!isBorderOnly(state) || state.win.appears_focused);
+    if (effect.enabled === enabled) return;
+    effect.enabled = enabled;
+    // Without the effect, Mutter paints a window scaled below half size
+    // from a mipmap again, see createEffect.
+    state.texture?.set_create_mipmaps(!enabled);
+}
+
+/**
+ * Check whether the effect of a window only draws the focus border: the
+ * window is a libadwaita app, which rounds itself and draws its own line
+ * and shadow. The effect is then only on while the window has the focus,
+ * and cuts nothing off.
+ *
+ * @param {WindowState} state - The window.
+ * @returns {boolean}
+ */
+function isBorderOnly(state) {
+    return state.app?.libadwaita === true;
 }
 
 /**
@@ -225,8 +249,7 @@ export function onUnminimize(state) {
     //
     // See https://github.com/flexagoon/rounded-window-corners/issues/124
     //
-    // Without skip settings the app may not be known yet; then the refresh
-    // follows once it is.
+    // If the app is not known yet, the refresh follows once it is.
     if (state.app) refreshChromiumLater(state);
     else startAppDetection(state, () => refreshChromiumLater(state));
 }
@@ -318,11 +341,11 @@ function syncTexture(state) {
     if (state.texture) {
         state.texture.disconnectObject(state);
         state.emitters.delete(state.texture);
-        if (state.effect) state.texture.set_create_mipmaps(true);
+        if (state.effect?.enabled) state.texture.set_create_mipmaps(true);
     }
     state.texture = texture;
     if (texture) {
-        if (state.effect) texture.set_create_mipmaps(false);
+        if (state.effect?.enabled) texture.set_create_mipmaps(false);
         texture.connectObject(
             'size-changed',
             () => queueUpdate(state, GEOMETRY),
@@ -333,7 +356,7 @@ function syncTexture(state) {
 }
 
 /**
- * Find out once whether the app uses libadwaita, libhandy or Chromium, and
+ * Find out once whether the app uses libadwaita or Chromium, and
  * update the window when the answer arrives. Games are known from their
  * window class right away.
  *
@@ -345,7 +368,7 @@ function startAppDetection(state, then) {
     if (!state.app && !state.detection) {
         const pid = state.win.get_pid();
         if (isGame(state.win) || pid <= 0) {
-            state.app = {type: 'Other', chromium: false};
+            state.app = OTHER_APP;
             queueUpdate(state, STATE);
         } else {
             state.pid = pid;
@@ -384,6 +407,9 @@ function createEffect(state, target) {
     // offscreen texture, which makes overview previews blurry (upstream
     // issue #36, pull request #170).
     state.texture?.set_create_mipmaps(false);
+
+    // libadwaita apps draw their own shadow.
+    if (isBorderOnly(state)) return;
 
     const shadow = createShadow(state.actor);
     state.shadow = shadow;
@@ -475,20 +501,13 @@ function createShadow(actor) {
 }
 
 /**
- * Update the shadow style for the window's focus and settings.
+ * Update the shadow style for the window's focus.
  *
  * @param {WindowState} state - The window.
  */
 function refreshShadow(state) {
     const {win, shadow} = state;
-    const shadowSettings = getShadowCfg(win);
-
-    const hidden = updateShadowActorStyle(
-        win,
-        shadow,
-        getRoundedCornersCfg(win),
-        shadowSettings,
-    );
+    const hidden = updateShadowActorStyle(win, shadow, getShadowCfg(win));
     if (hidden !== state.shadowHidden) {
         state.shadowHidden = hidden;
         syncShadowVisible(state);
@@ -496,7 +515,8 @@ function refreshShadow(state) {
 }
 
 /**
- * Update effect uniforms and shadow constraints for a window.
+ * Update effect uniforms and shadow constraints for a window. Uniforms and
+ * constraints that stay the same cost nothing.
  *
  * @param {WindowState} state - The window.
  */
@@ -507,13 +527,14 @@ function updateEffect(state) {
     // soon as it is visible again.
     syncEffectEnabled(state);
 
-    const cfg = getRoundedCornersCfg(win);
     const windowContentOffset = computeWindowContentsOffset(win);
     effect.updateUniforms(
-        cfg,
-        computeBounds(win, effectActor, windowContentOffset),
+        computeBounds(effectActor, windowContentOffset),
+        getBorder(win),
+        !isBorderOnly(state),
     );
 
+    if (!shadow) return;
     const offsets = computeShadowActorOffset(windowContentOffset);
     shadow.get_constraints().forEach((constraint, i) => {
         if (constraint instanceof Clutter.BindConstraint) {

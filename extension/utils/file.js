@@ -67,7 +67,7 @@ export async function findInFile(path, markers, chunkSize = 64 * 1024) {
  * @param {string} path - File path relative to the current module.
  * @returns {Promise<string>} Contents of the file as a UTF-8 string.
  */
-export async function readRelativeFile(module, path) {
+async function readRelativeFile(module, path) {
     const file = Gio.File.new_for_uri(
         GLib.uri_resolve_relative(module, path, GLib.UriFlags.NONE),
     );

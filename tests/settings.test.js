@@ -1,20 +1,24 @@
 // Tests for the settings cache in extension/utils/settings.js.
 
 import {
-    connectPref,
-    getPref,
-    getPrefCopy,
-    initPrefs,
-    setPref,
-    uninitPrefs,
+    debugMode,
+    focusBorderWidth,
+    initSettings,
+    settings as current,
+    uninitSettings,
 } from '../extension/utils/settings.js';
 import {equal, ok, run, test} from './harness.js';
 
-/** A stand-in for Gio.Settings that counts how often values are unpacked. */
+/** A stand-in for Gio.Settings that counts reads. */
 class FakeSettings {
     constructor(values) {
-        this.values = {...values};
-        this.unpacks = 0;
+        this.values = {
+            'debug-mode': false,
+            'focus-border': false,
+            'focus-border-width': 2,
+            ...values,
+        };
+        this.reads = 0;
         this.handlers = new Map();
         this.nextId = 1;
     }
@@ -29,126 +33,72 @@ class FakeSettings {
         this.handlers.delete(id);
     }
 
-    emitChanged(key) {
+    set(key, value) {
+        this.values[key] = value;
         for (const {signal, callback} of this.handlers.values())
             if (signal === 'changed' || signal === `changed::${key}`)
                 callback(this, key);
     }
 
-    get_user_value(key) {
-        return key in this.values ? this.get_value(key) : null;
+    get_boolean(key) {
+        this.reads++;
+        return this.values[key];
     }
 
-    get_value(key) {
-        return {
-            recursiveUnpack: () => {
-                this.unpacks++;
-                return JSON.parse(JSON.stringify(this.values[key]));
-            },
-        };
-    }
-
-    set_value(key, variant) {
-        this.values[key] = variant.recursiveUnpack();
+    get_int(key) {
+        this.reads++;
+        return this.values[key];
     }
 }
 
-test('reads each key from GSettings only once', () => {
-    const settings = new FakeSettings({'border-width': 2});
-    initPrefs(settings);
-    const before = settings.unpacks;
-    equal(getPref('border-width'), 2);
-    equal(getPref('border-width'), 2);
-    equal(getPref('border-width'), 2);
-    equal(settings.unpacks - before, 1);
-    uninitPrefs();
+test('the focus border width is 0 while the border is off', () => {
+    const settings = new FakeSettings({'focus-border-width': 3});
+    initSettings(settings);
+    equal(focusBorderWidth(), 0);
+    settings.set('focus-border', true);
+    equal(focusBorderWidth(), 3, 'width once switched on');
+    settings.set('focus-border-width', 1);
+    equal(focusBorderWidth(), 1, 'new width after a change');
+    uninitSettings();
 });
 
-test('optional keys are null until they are set', () => {
+test('values are read once, not on every call', () => {
+    const settings = new FakeSettings({'focus-border': true});
+    initSettings(settings);
+    const before = settings.reads;
+    for (let i = 0; i < 10; i++) {
+        focusBorderWidth();
+        debugMode();
+    }
+    equal(settings.reads, before);
+    uninitSettings();
+});
+
+test('uninitSettings disconnects and resets the values', () => {
+    const settings = new FakeSettings({'focus-border': true, 'debug-mode': true});
+    initSettings(settings);
+    uninitSettings();
+    equal(settings.handlers.size, 0);
+    equal(current, null);
+    equal(focusBorderWidth(), 0);
+    equal(debugMode(), false);
+});
+
+test('debug logging builds no message while debug mode is off', async () => {
     const settings = new FakeSettings({});
-    initPrefs(settings);
-    equal(getPref('dark-border-color'), null);
-    equal(getPref('dark-border-color'), null, 'cached as null');
-    settings.values['dark-border-color'] = [1, 0, 0, 1];
-    settings.emitChanged('dark-border-color');
-    equal(getPref('dark-border-color')[0], 1);
-    delete settings.values['dark-border-color'];
-    settings.emitChanged('dark-border-color');
-    equal(getPref('dark-border-color'), null, 'null again after a reset');
-    uninitPrefs();
-});
-
-test('reads the new value after a changed signal', () => {
-    const settings = new FakeSettings({'border-width': 2});
-    initPrefs(settings);
-    equal(getPref('border-width'), 2);
-    settings.values['border-width'] = 5;
-    equal(getPref('border-width'), 2, 'still cached before the signal');
-    settings.emitChanged('border-width');
-    equal(getPref('border-width'), 5);
-    uninitPrefs();
-});
-
-test('setPref drops the cached value right away', () => {
-    const settings = new FakeSettings({'border-width': 2});
-    initPrefs(settings);
-    equal(getPref('border-width'), 2);
-    setPref('border-width', 7);
-    equal(getPref('border-width'), 7);
-    uninitPrefs();
-});
-
-test('getPrefCopy does not change the cached value', () => {
-    const settings = new FakeSettings({blacklist: ['a']});
-    initPrefs(settings);
-    const copy = getPrefCopy('blacklist');
-    copy.push('b');
-    equal(getPref('blacklist'), ['a']);
-    uninitPrefs();
-});
-
-test('uninitPrefs disconnects and clears the cache', () => {
-    const settings = new FakeSettings({'border-width': 2});
-    initPrefs(settings);
-    getPref('border-width');
-    uninitPrefs();
-    equal(settings.handlers.size, 0);
-
-    settings.values['border-width'] = 9;
-    initPrefs(settings);
-    equal(getPref('border-width'), 9, 'no stale value after re-init');
-    uninitPrefs();
-});
-
-test('connectPref sees the new value and ends with uninitPrefs', () => {
-    const settings = new FakeSettings({'border-width': 2});
-    initPrefs(settings);
-    const seen = [];
-    connectPref('border-width', () => seen.push(getPref('border-width')));
-    settings.values['border-width'] = 3;
-    settings.emitChanged('border-width');
-    settings.emitChanged('debug-mode');
-    equal(seen, [3]);
-    uninitPrefs();
-    equal(settings.handlers.size, 0);
-});
-
-test('debug logging reads the cached flag', async () => {
-    const settings = new FakeSettings({'debug-mode': false});
-    initPrefs(settings);
+    initSettings(settings);
     const {logDebug} = await import('../extension/utils/log.js');
     let built = 0;
-    const before = settings.unpacks;
     for (let i = 0; i < 10; i++) {
         logDebug(() => {
             built++;
             return 'message';
         });
     }
-    equal(built, 0, 'message not built while debug mode is off');
-    ok(settings.unpacks - before <= 1, 'flag unpacked at most once');
-    uninitPrefs();
+    equal(built, 0);
+    uninitSettings();
     logDebug('after uninit does not throw');
+    ok(true);
 });
 
 await run('settings.test.js');

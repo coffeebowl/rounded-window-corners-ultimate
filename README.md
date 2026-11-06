@@ -21,6 +21,9 @@ by yilozt. Both did the hard work, this fork just builds on top of it.
 - **Stable and light.** No effects on fullscreen windows and games. Many
   fixes started out in other forks of the extension; they were adapted here,
   and every commit says where they came from.
+- **Looks like libadwaita, nothing to tune.** Every window gets the corners,
+  outline and shadow of libadwaita windows. The only setting is an optional
+  focus border.
 
 The extension is not on extensions.gnome.org.
 
@@ -46,8 +49,7 @@ The extension is not on extensions.gnome.org.
   can skip drawing them.
 - Shadows are pre-rendered images instead of an extra copy of every window.
 - Sharp overview previews without a second rendering pass.
-- Settings are read once instead of on every update, and games never
-  trigger a scan of their process memory map.
+- Games never trigger a scan of their process memory map.
 
 **Looks**
 
@@ -55,8 +57,11 @@ The extension is not on extensions.gnome.org.
 - Corners and borders sit exactly on the window edge; before, they could
   be off by up to 2 pixels.
 - The corner radius is limited correctly on small windows.
-- Shadows match windows with custom corner settings.
-- Border color and shadows can follow the system's light and dark style.
+- Corners, outline and shadow follow libadwaita windows, in light and dark
+  style alike. libadwaita apps keep their own, since they draw all this
+  themselves.
+- An optional focus border in the system's accent color marks the active
+  window, libadwaita apps included.
 
 **Compatibility**
 
@@ -119,6 +124,31 @@ please open an issue, that helps a lot!
 Coming from Rounded Window Corners Reborn? Disable it first and log out
 once. GJS keeps registered classes around until the session ends, so the two
 would get in each other's way.
+
+Updating from 51.0? Its settings are gone, their old values stay in dconf
+but are no longer used. To clear them:
+
+```bash
+dconf reset -f /org/gnome/shell/extensions/rounded-window-corners-ultimate/
+```
+
+## Settings
+
+There is just one: a border in the system's accent color around the focused
+window, 1 to 10 pixels wide and off by default. Turn it on in the Extensions
+app or with:
+
+```bash
+gnome-extensions prefs rounded-window-corners-ultimate@coffeebowl
+```
+
+It lies inside the window edge, where the outline would be. For bug reports,
+`debug-mode` writes debug messages to the journal:
+
+```bash
+gsettings --schemadir ~/.local/share/gnome-shell/extensions/rounded-window-corners-ultimate@coffeebowl/schemas \
+    set org.gnome.shell.extensions.rounded-window-corners-ultimate debug-mode true
+```
 
 ## Development
 

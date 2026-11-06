@@ -11,7 +11,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import {logDebug, logError} from '../utils/log.js';
 import {clearShadowImages} from '../utils/shadow_files.js';
-import {prefs} from '../utils/settings.js';
+import {focusBorderWidth, settings} from '../utils/settings.js';
 import {findCovered} from './coverage.js';
 import * as handlers from './event_handlers.js';
 import {coversMonitor, isOpaque, monitorContaining} from './utils.js';
@@ -19,7 +19,6 @@ import {
     DEFORM,
     FOCUS,
     GEOMETRY,
-    SETTINGS,
     STATE,
     createState,
     dropState,
@@ -47,14 +46,8 @@ let coverageLaterId = 0;
  */
 const coveragePausedBy = new Set();
 
-/** Settings keys that only change how the shadow looks. */
-const SHADOW_KEYS = new Set([
-    'focused-shadow',
-    'unfocused-shadow',
-    'dark-focused-shadow',
-    'dark-unfocused-shadow',
-    'keep-shadow-for-maximized-fullscreen',
-]);
+/** The accent color as last seen, to notice when it changes. */
+let accentColor = '';
 
 /**
  * The rounded corners effect has to react when different events happen.
@@ -90,12 +83,20 @@ export function enableEffect() {
         },
     });
 
-    // Update the effect when settings are changed.
-    prefs.connectObject('changed', (_, key) => onSettingsChanged(key), owner);
-    // Border color and shadows can differ between light and dark.
-    St.Settings.get().connectObject(
-        'notify::color-scheme',
-        () => queueUpdateAll(SETTINGS),
+    // The focus border follows its settings and the accent color. St
+    // updates the color in the theme context, which then emits `changed`,
+    // also for other theme changes.
+    settings.connectObject('changed', (_, key) => onSettingsChanged(key), owner);
+    const themeContext = St.ThemeContext.get_for_stage(global.stage);
+    accentColor = themeContext.get_accent_color()[0].to_string();
+    themeContext.connectObject(
+        'changed',
+        () => {
+            const color = themeContext.get_accent_color()[0].to_string();
+            if (color === accentColor) return;
+            accentColor = color;
+            if (focusBorderWidth() > 0) queueUpdateAll(FOCUS);
+        },
         owner,
     );
 
@@ -164,8 +165,8 @@ export function disableEffect() {
 
     for (const state of [...states.values()]) untrack(state);
 
-    prefs?.disconnectObject(owner);
-    St.Settings.get().disconnectObject(owner);
+    settings?.disconnectObject(owner);
+    St.ThemeContext.get_for_stage(global.stage).disconnectObject(owner);
     global.display.disconnectObject(owner);
     global.windowManager.disconnectObject(owner);
     Main.layoutManager.disconnectObject(owner);
@@ -347,11 +348,13 @@ function withWindow(win, handler) {
 }
 
 /**
- * Queue the updates that a settings change needs.
+ * Queue the updates that a settings change needs. Turning the focus border
+ * on or off decides whether libadwaita apps have the effect; its width
+ * only changes the border, like a focus change.
  *
  * @param {string} key - The settings key that changed.
  */
 function onSettingsChanged(key) {
     if (key === 'debug-mode') return;
-    queueUpdateAll(SHADOW_KEYS.has(key) ? FOCUS : SETTINGS);
+    queueUpdateAll(key === 'focus-border' ? STATE : FOCUS);
 }

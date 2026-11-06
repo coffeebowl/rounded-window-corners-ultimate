@@ -1,7 +1,7 @@
-// Automation script for tests/run-smoke.sh: checks that a 1 px border lies
-// exactly on the edges of the window frame, and that it is 1.5 pixels wide
-// on every side at 150 % (upstream issue #113). Needs a 1920x1080 monitor
-// for the 150 % part.
+// Automation script for tests/run-smoke.sh: checks that a 1 px focus border
+// lies exactly on the edges of the window frame, follows focus and accent
+// color, and is 1.5 pixels wide on every side at 150 % (upstream issue
+// #113). Needs a 1920x1080 monitor for the 150 % part.
 //
 // The shader maps texture coordinates to window coordinates with Clutter's
 // padding rules for offscreen textures. If those rules change, the border
@@ -27,20 +27,26 @@ async function screenshot() {
     return GdkPixbuf.Pixbuf.new_from_stream(input, null);
 }
 
+/** The red accent color, #e62d42 in st-theme-context.c. */
+const RED = [230, 45, 66];
+/** The green accent color, #3a944a. */
+const GREEN = [58, 148, 74];
+
 /**
  * @param {GdkPixbuf.Pixbuf} image
  * @param {number} x
  * @param {number} y
- * @returns {boolean} Whether the pixel is the red border color.
+ * @param {number[]} [color] - The color to look for.
+ * @returns {boolean} Whether the pixel has the color.
  */
-function isRed(image, x, y) {
+function isColor(image, x, y, color = RED) {
     const pixels = image.get_pixels();
     const i = y * image.get_rowstride() + x * image.get_n_channels();
-    return pixels[i] > 200 && pixels[i + 1] < 60 && pixels[i + 2] < 60;
+    return color.every((c, j) => Math.abs(pixels[i + j] - c) < 12);
 }
 
 /**
- * Add up how much border color lies on a line of pixels: 1 for a pixel
+ * Add up how much red border lies on a line of pixels: 1 for a pixel
  * fully covered by the border, 0.5 for one half covered.
  *
  * @param {GdkPixbuf.Pixbuf} image
@@ -58,8 +64,8 @@ function borderAmount(image, x, y, dx, dy, count) {
         const j =
             (y + i * dy) * image.get_rowstride() +
             (x + i * dx) * image.get_n_channels();
-        // Red over black or white: red minus green is its coverage.
-        sum += Math.max(0, pixels[j] - pixels[j + 1]) / 255;
+        // Red over black or grey: red minus green is its coverage.
+        sum += Math.max(0, pixels[j] - pixels[j + 1]) / (RED[0] - RED[1]);
     }
     return sum;
 }
@@ -138,45 +144,27 @@ export async function run() {
         path: root,
         dir: Gio.File.new_for_path(root),
     });
+    const desktop = new Gio.Settings({
+        schema_id: 'org.gnome.desktop.interface',
+    });
+    desktop.set_string('accent-color', 'red');
     extension.enable();
-
-    // After enable, which resets outdated settings.
     const settings = extension.getSettings();
-    settings.set_boolean('skip-libadwaita-app', false);
-    settings.set_boolean('skip-libhandy-app', false);
-    settings.set_int('border-width', 1);
-    const zero = variant('u', 0);
-    settings.set_value(
-        'global-rounded-corner-settings',
-        variant('a{sv}', {
-            padding: variant('a{sv}', {
-                left: zero,
-                right: zero,
-                top: zero,
-                bottom: zero,
-            }),
-            keepRoundedCorners: variant('a{sv}', {
-                maximized: variant('b', false),
-                fullscreen: variant('b', false),
-            }),
-            borderRadius: zero,
-            smoothing: variant('i', 0),
-            borderColor: variant('ad', [1, 0, 0, 1]),
-            enabled: variant('b', true),
-        }),
-    );
-    for (const key of ['focused-shadow', 'unfocused-shadow']) {
-        const shadow = settings.get_value(key).deepUnpack();
-        shadow.opacity = 0;
-        settings.set_value(key, variant('a{si}', shadow));
-    }
+    settings.set_boolean('focus-border', true);
+    settings.set_int('focus-border-width', 1);
 
     Main.overview.hide();
     await Scripting.createTestWindow({width: 500, height: 320});
+    await Scripting.createTestWindow({width: 300, height: 200});
     await Scripting.waitTestWindows();
     await Scripting.sleep(600);
-    const win = global.get_window_actors()[0].metaWindow;
+    const [win, other] = global
+        .get_window_actors()
+        .map(a => a.metaWindow)
+        .sort((a, b) => b.get_frame_rect().width - a.get_frame_rect().width);
     win.move_frame(false, 100, 120);
+    other.move_frame(false, 900, 120);
+    Main.activateWindow(win);
     await Scripting.sleep(600);
 
     const {x, y, width, height} = win.get_frame_rect();
@@ -192,42 +180,39 @@ export async function run() {
     };
     for (const [name, [ex, ey, dx, dy]] of Object.entries(edges)) {
         check(
-            isRed(image, ex, ey) &&
-                !isRed(image, ex + dx, ey + dy) &&
-                !isRed(image, ex - dx, ey - dy),
+            isColor(image, ex, ey) &&
+                !isColor(image, ex + dx, ey + dy) &&
+                !isColor(image, ex - dx, ey - dy),
             `The ${name} border is not on the frame edge`,
         );
     }
 
-    // While the system prefers dark, the dark border color applies, but
-    // only once it is set.
-    const isGreen = (shot, px, py) => {
-        const pixels = shot.get_pixels();
-        const i = py * shot.get_rowstride() + px * shot.get_n_channels();
-        return pixels[i] < 60 && pixels[i + 1] > 200 && pixels[i + 2] < 60;
-    };
-    const desktop = new Gio.Settings({
-        schema_id: 'org.gnome.desktop.interface',
-    });
-    desktop.set_string('color-scheme', 'prefer-dark');
+    // Only the focused window has the border, the other one the thin line.
+    const otherX = other.get_frame_rect().x;
+    const otherY = other.get_frame_rect().y + 100;
+    check(!isColor(image, otherX, otherY), 'An unfocused window has no focus border');
+    Main.activateWindow(other);
     await Scripting.sleep(300);
+    let shot = await screenshot();
     check(
-        isRed(await screenshot(), x, midY),
-        'Without a dark border color, the border has to stay red',
+        isColor(shot, otherX, otherY) && !isColor(shot, x, midY),
+        'The focus border has to move with the focus',
     );
-    settings.set_value('dark-border-color', variant('ad', [0, 1, 0, 1]));
+    Main.activateWindow(win);
     await Scripting.sleep(300);
-    check(
-        isGreen(await screenshot(), x, midY),
-        'The dark border color has to apply in dark mode',
-    );
-    desktop.set_string('color-scheme', 'default');
+
+    // The border follows the accent color and its switch.
+    desktop.set_string('accent-color', 'green');
     await Scripting.sleep(300);
-    check(
-        isRed(await screenshot(), x, midY),
-        'The light border color has to return',
-    );
-    settings.reset('dark-border-color');
+    check(isColor(await screenshot(), x, midY, GREEN), 'The border has to follow the accent color');
+    desktop.set_string('accent-color', 'red');
+    settings.set_boolean('focus-border', false);
+    await Scripting.sleep(300);
+    shot = await screenshot();
+    check(!isColor(shot, x, midY), 'The border has to go when switched off');
+    settings.set_boolean('focus-border', true);
+    await Scripting.sleep(300);
+    check(isColor(await screenshot(), x, midY), 'The border has to return');
 
     // At 150 %, a 1 px border covers 1.5 pixels on every side, wherever
     // the window is. Before, it was 1 or 2 pixels depending on the side

@@ -49,9 +49,6 @@ export async function run() {
         dir: Gio.File.new_for_path(root),
     });
 
-    const settings = extension.getSettings();
-    settings.set_boolean('skip-libadwaita-app', false);
-    settings.set_boolean('skip-libhandy-app', false);
     extension.enable();
 
     await Scripting.createTestWindow({width: 640, height: 480});

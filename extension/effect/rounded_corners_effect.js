@@ -4,8 +4,8 @@ import Clutter from 'gi://Clutter';
 import Cogl from 'gi://Cogl';
 import GObject from 'gi://GObject';
 
+import {RADIUS} from '../utils/config.js';
 import {readShader} from '../utils/file.js';
-import {getPref} from '../utils/settings.js';
 import {updateTextureFilters} from './texture_filters.js';
 
 const [declarations, code] = await readShader(
@@ -115,58 +115,45 @@ export const RoundedCornersEffect = GObject.registerClass(
          * Update uniforms of the shader.
          * For more information, see the comments in the shader file.
          *
-         * @param {import('../utils/types.js').RoundedCornerSettings} config - Rounded corners configuration
-         * @param {import('../utils/types.js').Bounds} windowBounds - Bounds of the window without padding
+         * @param {import('../utils/types.js').Bounds} windowBounds - Bounds of the window
+         * @param {import('../utils/types.js').Border} border - The border inside the window edge
+         * @param {boolean} clip - Whether to cut off everything outside the
+         *   rounded window, or only draw the border
          */
-        updateUniforms(config, windowBounds) {
-            const borderWidth = getPref('border-width');
-            const borderColor = config.borderColor;
-
-            const outerRadius = config.borderRadius;
-            const {padding, smoothing} = config;
-
+        updateUniforms(windowBounds, border, clip) {
             const bounds = [
-                windowBounds.x1 + padding.left,
-                windowBounds.y1 + padding.top,
-                windowBounds.x2 - padding.right,
-                windowBounds.y2 - padding.bottom,
+                windowBounds.x1,
+                windowBounds.y1,
+                windowBounds.x2,
+                windowBounds.y2,
             ];
-
+            const {width} = border;
             const borderedAreaBounds = [
-                bounds[0] + borderWidth,
-                bounds[1] + borderWidth,
-                bounds[2] - borderWidth,
-                bounds[3] - borderWidth,
+                bounds[0] + width,
+                bounds[1] + width,
+                bounds[2] - width,
+                bounds[3] - width,
             ];
 
-            let borderedAreaRadius = outerRadius - borderWidth;
-            if (borderedAreaRadius < 0.001) {
-                borderedAreaRadius = 0.0;
-            }
-
-            // This is needed for squircle corners
-            let exponent = smoothing * 10 + 2;
-            let radius = outerRadius * 0.5 * exponent;
             // The corner circles start at `bounds + radius`, so the radius
             // can be at most half of the shorter side.
             const maxRadius = Math.max(
                 0,
                 Math.min(bounds[2] - bounds[0], bounds[3] - bounds[1]) / 2,
             );
-            if (radius > maxRadius) {
-                exponent *= maxRadius / radius;
-                radius = maxRadius;
-            }
-            borderedAreaRadius *= outerRadius > 0 ? radius / outerRadius : 0;
+            const radius = Math.min(RADIUS, maxRadius);
+            // The inner edge of the border keeps the same distance from the
+            // outer one along the curve.
+            const borderedAreaRadius = Math.max(radius - width, 0);
 
             const uniforms = {
                 bounds,
                 clipRadius: [radius],
-                borderWidth: [borderWidth],
-                borderColor,
+                borderWidth: [width],
+                borderColor: border.color,
                 borderedAreaBounds,
                 borderedAreaClipRadius: [borderedAreaRadius],
-                exponent: [exponent],
+                clipToWindow: [clip ? 1 : 0],
             };
             for (const [name, values] of Object.entries(uniforms))
                 this.#setUniform(name, values);
@@ -190,8 +177,7 @@ export const RoundedCornersEffect = GObject.registerClass(
             )
                 return;
 
-            // Store a copy, borderColor comes from a mutable settings object.
-            this.#lastUniforms.set(name, [...values]);
+            this.#lastUniforms.set(name, values);
             this.set_uniform_float(name, values.length, values);
         }
     },

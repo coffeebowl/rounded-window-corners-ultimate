@@ -94,7 +94,6 @@ export async function run() {
         path: root,
         dir: Gio.File.new_for_path(root),
     });
-    extension.getSettings().set_boolean('skip-libadwaita-app', false);
     extension.enable();
     Main.overview.hide();
     await Scripting.sleep(600);

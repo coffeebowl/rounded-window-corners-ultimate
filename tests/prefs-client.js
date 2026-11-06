@@ -82,74 +82,31 @@ async function main() {
     const prefs = new Prefs(metadata);
 
     const settings = prefs.getSettings();
-    settings.set_strv('blacklist', ['a', 'b', 'c']);
 
     const win = new Adw.PreferencesWindow();
     await prefs.fillPreferencesWindow(win);
     win.present();
     await settle();
+    shot(win, 'prefs');
 
-    const global = () => settings.get_value('global-rounded-corner-settings').recursiveUnpack();
-    const custom = () => settings.get_value('custom-rounded-corner-settings').recursiveUnpack();
+    // The width row follows the switch in the group header.
+    const [toggle] = findAll(win, 'GtkSwitch');
+    const [width] = findAll(win, 'AdwSpinRow');
+    check(!toggle.active && !width.sensitive, 'Focus border starts off, width greyed out');
+    toggle.active = true;
+    check(settings.get_boolean('focus-border'), 'Switch saved');
+    check(width.sensitive, 'Width can be changed once the border is on');
 
-    // Blacklist: deleting a row removes exactly its window class.
-    const [blacklist] = findAll(win, 'PrefsBlacklist');
-    const rowB = findAll(blacklist, 'AppRow').find(row => row.subtitle === 'b');
-    rowB.onDelete();
-    check(
-        JSON.stringify(settings.get_strv('blacklist')) === '["a","c"]',
-        `Deleting b left ${settings.get_strv('blacklist')}`,
-    );
-
-    // Custom settings: a new row starts from the global settings, and keeps
-    // editing its window after a rename.
-    const [customPage] = findAll(win, 'PrefsCustom');
-    customPage.addWindow(null);
-    const row = findAll(customPage, 'CustomSettingsRow').at(-1);
-    row.onTitleChange({text: 'foo'});
-    row.expanded = true;
-    await settle();
-    shot(row, 'custom-row');
-    check(custom().foo?.borderRadius === global().borderRadius, 'New override copies the global settings');
-    row.cornerRadius.value = 20;
-    check(custom().foo.borderRadius === 20, 'Radius of foo saved');
-    row.onTitleChange({text: 'bar'});
-    row.cornerRadius.value = 25;
-    check(!custom().foo && custom().bar?.borderRadius === 25, 'Renamed override keeps saving');
-
-    // A second row cannot take a window class that is already used.
-    customPage.addWindow(null);
-    const second = findAll(customPage, 'CustomSettingsRow').at(-1);
-    second.onTitleChange({text: 'bar'});
-    check(second.subtitle === '' && custom().bar.borderRadius === 25, 'Duplicate refused');
-
-    // General page: edits are saved, and a reset shows up on the page.
-    const [general] = findAll(win, 'PrefsGeneral');
-    shot(general._paddings, 'paddings');
-    general._cornerRadius.value = 30;
-    check(global().borderRadius === 30, 'Global radius saved');
-    general.showResetPage();
-    await settle();
-    const [reset] = findAll(win, 'ResetPage');
-    findAll(reset, 'AdwSwitchRow').find(r => r.name === 'borderRadius').active = true;
-    reset.reset(null, 'reset');
-    await settle();
-    const defaultRadius = settings.get_default_value('global-rounded-corner-settings')
-        .recursiveUnpack().borderRadius;
-    check(global().borderRadius === defaultRadius, 'Reset restores the radius');
-    check(general._cornerRadius.value === defaultRadius, 'General page shows the reset radius');
-    general._cornerSmoothing.value = 0.5;
-    check(global().borderRadius === defaultRadius, 'Next edit keeps the reset radius');
-
-    // Shadow page: edits are saved while it is shown.
-    general.showShadowPage();
-    await settle();
-    const [shadowPage] = findAll(win, 'EditShadowPage');
-    shot(shadowPage, 'shadow-page');
-    shadowPage._focusedOpacity.value = 10;
-    check(settings.get_value('focused-shadow').recursiveUnpack().opacity === 10, 'Shadow saved');
-    win.pop_subpage();
-    await settle();
+    // The width is saved and stays within the schema's range.
+    check(width.value === settings.get_int('focus-border-width'), 'Width row shows the setting');
+    width.value = 3;
+    check(settings.get_int('focus-border-width') === 3, 'Width saved');
+    width.value = 7;
+    check(settings.get_int('focus-border-width') === 7, 'Wider borders saved');
+    width.value = 20;
+    check(settings.get_int('focus-border-width') === 10, 'Width kept within 1 to 10');
+    settings.set_int('focus-border-width', 1);
+    check(width.value === 1, 'Width row follows the setting');
 
     win.close();
     await settle();

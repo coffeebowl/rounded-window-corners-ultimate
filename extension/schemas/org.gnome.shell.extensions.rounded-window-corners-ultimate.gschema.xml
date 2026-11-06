@@ -5,134 +5,20 @@
     path="/org/gnome/shell/extensions/rounded-window-corners-ultimate/"
   >
 
-    <key name="whitelist" type="b">
-      <summary>Use the blacklist as a whitelist instead</summary>
+    <key name="focus-border" type="b">
+      <summary>Mark the focused window with a border</summary>
+      <description>The border has the system's accent color and lies inside the window edge.</description>
       <default>false</default>
     </key>
 
-    <key name="blacklist" type="as">
-      <default>[]</default>
-      <summary>Windows that are not rounded</summary>
-      <description>Window classes, as shown by the window picker in the preferences or by Looking Glass.</description>
-    </key>
-
-    <key name="skip-libadwaita-app" type="b">
-      <summary>Skip Libadwaita applications</summary>
-      <default>true</default>
-    </key>
-
-    <key name="skip-libhandy-app" type="b">
-      <summary>Skip LibHandy applications</summary>
-      <default>false</default>
-    </key>
-
-    <key name="border-width" type="i">
-      <summary>Border width of rounded windows</summary>
-      <description>Positive values draw the border inside the window, negative values outside.</description>
-      <range min="-40" max="40"/>
-      <default>0</default>
-    </key>
-
-    <key name="global-rounded-corner-settings" type="a{sv}">
-      <summary>Global rounded corners settings for all windows</summary>
-      <default>
-        <!-- Variants are written as <value>, escaped as &lt; and &gt; in XML. -->
-        {
-          'padding': &lt;{
-            'left': &lt;uint32 0&gt;,
-            'right': &lt;uint32 0&gt;,
-            'top': &lt;uint32 0&gt;,
-            'bottom': &lt;uint32 0&gt;
-          }&gt;,
-          'keepRoundedCorners': &lt;{
-            'maximized': &lt;false&gt;,
-            'fullscreen': &lt;false&gt;
-          }&gt;,
-          'borderRadius': &lt;uint32 15&gt;,
-          'smoothing': &lt;0&gt;,
-          'borderColor': &lt;[0.5, 0.5, 0.5, 1.0]&gt;,
-          'enabled': &lt;true&gt;
-        }
-      </default>
-    </key>
-
-    <key name="custom-rounded-corner-settings" type="a{sv}">
-      <summary>Rounded corners settings for single windows, by window class</summary>
-      <default>{}</default>
-    </key>
-
-    <key name="focused-shadow" type="a{si}">
-      <summary>Shadow for focused window</summary>
-      <default>
-        {
-          'horizontalOffset': 0,
-          'verticalOffset': 4,
-          'blurOffset': 28,
-          'spreadRadius': 4,
-          'opacity': 60
-        }
-      </default>
-    </key>
-
-    <key name="unfocused-shadow" type="a{si}">
-      <summary>Shadow for unfocused window</summary>
-      <default>
-        {
-          'horizontalOffset': 0,
-          'verticalOffset': 2,
-          'blurOffset': 12,
-          'spreadRadius': -1,
-          'opacity': 65
-        }
-      </default>
-    </key>
-
-    <key name="dark-border-color" type="ad">
-      <summary>Border color while the system prefers dark</summary>
-      <description>Only used once set. Until then the border color of the rounded corner settings applies in dark mode too. Windows with custom settings keep their own color.</description>
-      <default>[0.25, 0.25, 0.25, 1.0]</default>
-    </key>
-
-    <key name="dark-focused-shadow" type="a{si}">
-      <summary>Shadow for focused windows while the system prefers dark</summary>
-      <description>Only used once set. Until then focused-shadow applies in dark mode too.</description>
-      <default>
-        {
-          'horizontalOffset': 0,
-          'verticalOffset': 4,
-          'blurOffset': 28,
-          'spreadRadius': 4,
-          'opacity': 60
-        }
-      </default>
-    </key>
-
-    <key name="dark-unfocused-shadow" type="a{si}">
-      <summary>Shadow for unfocused windows while the system prefers dark</summary>
-      <description>Only used once set. Until then unfocused-shadow applies in dark mode too.</description>
-      <default>
-        {
-          'horizontalOffset': 0,
-          'verticalOffset': 2,
-          'blurOffset': 12,
-          'spreadRadius': -1,
-          'opacity': 65
-        }
-      </default>
-    </key>
-
-    <key name="keep-shadow-for-maximized-fullscreen" type="b">
-      <summary>Keep shadows for maximized and fullscreen windows</summary>
-      <default>false</default>
+    <key name="focus-border-width" type="i">
+      <summary>Width of the focus border in pixels</summary>
+      <range min="1" max="10"/>
+      <default>2</default>
     </key>
 
     <key name="debug-mode" type="b">
       <summary>Log debug messages to the journal</summary>
-      <default>false</default>
-    </key>
-
-    <key name="tweak-kitty-terminal" type="b">
-      <summary>Clip the shadow that kitty draws itself on Wayland</summary>
       <default>false</default>
     </key>
   </schema>

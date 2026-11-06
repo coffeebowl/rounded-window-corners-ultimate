@@ -6,7 +6,6 @@
 import {
     FOCUS,
     GEOMETRY,
-    SETTINGS,
     STATE,
     createState,
     dropState,
@@ -134,10 +133,10 @@ test('disable cancels queued updates and ignores old ones', () => {
 
     const next = fakeUpdater();
     startUpdates(next.updater);
-    queueUpdate(state, SETTINGS);
+    queueUpdate(state, STATE);
     next.frame();
     equal(next.flushes.length, 1);
-    equal(next.flushes[0].bits, GEOMETRY | SETTINGS, 'kept earlier changes');
+    equal(next.flushes[0].bits, GEOMETRY | STATE, 'kept earlier changes');
     equal(fake.flushes.length, 0, 'old updater never flushed');
 });
 
@@ -145,12 +144,12 @@ test('queueUpdateAll reaches every window once', () => {
     const {fake, state} = setup();
     const other = createState({name: 'other'}, {name: 'win2'});
     queueUpdate(state, FOCUS);
-    queueUpdateAll(SETTINGS);
+    queueUpdateAll(STATE);
     fake.frame();
     equal(fake.flushes.length, 2);
     equal(
         fake.flushes.map(f => f.bits).sort(),
-        [SETTINGS, FOCUS | SETTINGS].sort(),
+        [STATE, FOCUS | STATE].sort(),
     );
     dropState(other);
 });

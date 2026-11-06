@@ -28,45 +28,22 @@ uniform vec4 bounds;
 // The border radius of the corner clipping.
 uniform float clipRadius;
 
-// Width and color of the border
+// Width and color of the border, which lies inside the window edge.
 uniform float borderWidth;
 uniform vec4 borderColor;
 
-// Bounds and clip radius of the area inside of borders.
-// When using inner borders, this is the smaller window area within those borders.
-// With outer borders, this is the total area of the window together with them.
+// Bounds and clip radius of the window area within the border.
 uniform vec4 borderedAreaBounds;
 uniform float borderedAreaClipRadius;
 
-// Exponent to use for squircle corners
-uniform float exponent;
+// 1 to cut off everything outside the rounded window, 0 to only draw the
+// border. libadwaita windows round themselves and draw their own shadow
+// outside the window, which has to stay.
+uniform float clipToWindow;
 
 // Where the offscreen texture lies in actor coordinates, as {x, y, width,
 // height}. Clutter pads the texture, so it is larger than the actor.
 uniform vec4 textureRect;
-
-// Calculate the distance of a point from the edge of a corner in window
-// pixels, positive inside.
-//
-//      delta | How far the point lies inside the corner, measured from the
-//            | circle's center towards the window edges
-// clipRadius | Border radius
-//   exponent | The exponent (n) of the superellipse, 2 for circles
-float cornerDistance(vec2 delta, float clipRadius, float exponent) {
-    if (exponent <= 2.0)
-        return clipRadius - length(delta);
-
-    // A squircle is what's called a "superellipse", which is defined by
-    // this formula:
-    //     (|x|^n + |y|^n)^(1/n)
-    // Divide by the larger side first, so large radii cannot overflow.
-    float largest = max(delta.x, delta.y);
-    vec2 normalized = delta / largest;
-    float dist = largest * pow(
-        pow(normalized.x, exponent) + pow(normalized.y, exponent),
-        1.0 / exponent);
-    return clipRadius - dist;
-}
 
 // Calculate how much of the screen pixel at a point lies within the window.
 //
@@ -74,9 +51,7 @@ float cornerDistance(vec2 delta, float clipRadius, float exponent) {
 //      pixel | Size of a screen pixel in window pixels
 //     bounds | The bounds of the window
 // clipRadius | Border radius
-//   exponent | The exponent (smoothness) of the squircle corners.
-//            | See `cornerDistance` for more information.
-float getPointOpacity(vec2 p, vec2 pixel, vec4 bounds, float clipRadius, float exponent) {
+float getPointOpacity(vec2 p, vec2 pixel, vec4 bounds, float clipRadius) {
     // Distances from the left or right and from the top or bottom edge,
     // whichever is closer.
     vec2 inset = min(p - bounds.xy, bounds.zw - p);
@@ -85,10 +60,11 @@ float getPointOpacity(vec2 p, vec2 pixel, vec4 bounds, float clipRadius, float e
     float coverage = min(inset.x / pixel.x, inset.y / pixel.y);
 
     // Within `clipRadius` of two edges, the point lies in a corner, where
-    // the distance from the rounded edge decides.
+    // the distance from the rounded edge decides. `delta` is how far the
+    // point lies from the circle's center towards the window edges.
     vec2 delta = vec2(clipRadius) - inset;
     if (delta.x > 0.0 && delta.y > 0.0) {
-        float dist = cornerDistance(delta, clipRadius, exponent);
+        float dist = clipRadius - length(delta);
         coverage = dist / (0.5 * (pixel.x + pixel.y));
     }
 
@@ -108,36 +84,18 @@ void main() {
     // branches, so this is measured once here.
     vec2 pixel = max(fwidth(p), vec2(0.0001));
 
-    float pointAlpha = getPointOpacity(p, pixel, bounds, clipRadius, exponent);
+    float pointAlpha = getPointOpacity(p, pixel, bounds, clipRadius);
 
-    if (borderWidth > 0.9 || borderWidth < -0.9) {
-        // If there is a border, we have to paint it.
+    // Window pixels already include the paint opacity, for example while a
+    // window fades in. Apply it to the border too. Colors here are
+    // premultiplied, so coverage multiplies all four components.
+    vec4 borderPaintColor = vec4(borderColor.rgb, 1.0) * borderColor.a * cogl_color_in.a;
 
-        // Window pixels already include the paint opacity, for example
-        // while a window fades in. Apply it to the border too. Colors here
-        // are premultiplied, so coverage multiplies all four components.
-        vec4 borderPaintColor = vec4(borderColor.rgb, 1.0) * borderColor.a * cogl_color_in.a;
-
-        // Calculate if the point lies within the bordered area (see the
-        // `borderedAreaBounds` uniform for an explanation of what this means)
-        float borderedAreaAlpha = getPointOpacity(p, pixel, borderedAreaBounds, borderedAreaClipRadius, exponent);
-
-        if (borderWidth > 0.0) {
-            // Inner borders: the border covers the part of the window
-            // outside of the bordered area, the window shows in the rest.
-            float borderAlpha = max(pointAlpha - borderedAreaAlpha, 0.0);
-            cogl_color_out = cogl_color_out * (pointAlpha - borderAlpha * borderColor.a)
-                           + borderPaintColor * borderAlpha;
-        } else {
-            // Outer borders: the border covers the part of the bordered
-            // area outside of the window.
-            float borderAlpha = max(borderedAreaAlpha - pointAlpha, 0.0);
-            cogl_color_out = cogl_color_out * pointAlpha
-                           + borderPaintColor * borderAlpha;
-        }
-    } else {
-        // If there's no border, just multiply the output color by the calculated
-        // alpha value.
-        cogl_color_out *= pointAlpha;
-    }
+    // The border covers the part of the window outside of the bordered
+    // area, the window shows in the rest.
+    float borderedAreaAlpha = getPointOpacity(p, pixel, borderedAreaBounds, borderedAreaClipRadius);
+    float borderAlpha = max(pointAlpha - borderedAreaAlpha, 0.0);
+    float windowAlpha = mix(1.0, pointAlpha, clipToWindow);
+    cogl_color_out = cogl_color_out * (windowAlpha - borderAlpha * borderColor.a)
+                   + borderPaintColor * borderAlpha;
 }

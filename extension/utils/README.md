@@ -3,10 +3,9 @@
 This directory contains functions which are used in different places throughout
 the codebase, so they can't be put anywhere else.
 
-## `box_shadow.js`
+## `config.js`
 
-Contains a function for converting box shadow JS objects into CSS styles for
-those shadows.
+Fixed values for corners, outline and shadows, after libadwaita windows.
 
 ## `constants.js`
 
@@ -32,10 +31,9 @@ shadow style.
 
 ## `settings.js`
 
-Provides wrappers around the GSettings object that add type safety and
-automatically convert values between JS types and GLib Variant types that are
-used for storing GSettings.
+Holds the few settings while the extension is enabled: the focus border and
+the debug flag.
 
 ## `types.js`
 
-Provides types used throughout the codebase, mostly for storing settings.
+Provides types used throughout the codebase.

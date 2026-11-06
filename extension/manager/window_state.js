@@ -18,8 +18,6 @@ export const GEOMETRY = 1;
 export const FOCUS = 2;
 /** Something changed that decides whether the window has the effect. */
 export const STATE = 4;
-/** The extension settings changed. */
-export const SETTINGS = 8;
 /** Another extension may have added an effect that deforms the window. */
 export const DEFORM = 16;
 
@@ -40,7 +38,7 @@ export const DEFORM = 16;
  *   The texture whose `size-changed` signal is connected.
  * @property {Set<import('gi://GObject').default.Object>} emitters -
  *   Objects with signals connected for this window, to disconnect them.
- * @property {{type: 'LibHandy' | 'LibAdwaita' | 'Other', chromium: boolean} | null} app -
+ * @property {{libadwaita: boolean, chromium: boolean} | null} app -
  *   What the app is built with, once known.
  * @property {Promise<void> | null} detection - The running app detection.
  * @property {number} pid - Process ID used for the app detection, or 0.

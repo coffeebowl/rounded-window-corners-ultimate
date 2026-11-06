@@ -1,4 +1,4 @@
-/** @file Provides types used throughout the codebase, mostly for storing settings. */
+/** @file Provides types used throughout the codebase. */
 
 /**
  * Bounds of rounded corners.
@@ -11,21 +11,11 @@
  */
 
 /**
- * Settings for corner rounding.
+ * A border drawn inside the window edge, over the contents.
  *
- * @typedef {object} RoundedCornerSettings
- * @property {{maximized: boolean, fullscreen: boolean}} keepRoundedCorners
- * @property {number} borderRadius
- * @property {number} smoothing
- * @property {{left: number, right: number, top: number, bottom: number}} padding
- * @property {[number, number, number, number]} borderColor
- * @property {boolean} enabled
- */
-
-/**
- * Rounded corner settings exceptions for specific windows, keyed by wmClass.
- *
- * @typedef {Record<string, RoundedCornerSettings>} CustomRoundedCornerSettings
+ * @typedef {object} Border
+ * @property {number} width - Width in pixels.
+ * @property {readonly number[]} color - Red, green, blue and alpha from 0 to 1.
  */
 
 /**

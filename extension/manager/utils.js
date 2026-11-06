@@ -7,11 +7,17 @@ import GObject from 'gi://GObject';
 import Meta from 'gi://Meta';
 import St from 'gi://St';
 
-import {APP_SHADOWS, SHADOW_PADDING} from '../utils/constants.js';
+import {
+    BORDER,
+    FOCUSED_SHADOW,
+    RADIUS,
+    UNFOCUSED_SHADOW,
+} from '../utils/config.js';
+import {SHADOW_PADDING} from '../utils/constants.js';
 import {findInFile} from '../utils/file.js';
 import {logDebug, logError} from '../utils/log.js';
 import {shadowImage} from '../utils/shadow_files.js';
-import {getPref} from '../utils/settings.js';
+import {focusBorderWidth} from '../utils/settings.js';
 
 /**
  * Get the actor that rounded corners should be applied to: the child of the
@@ -44,97 +50,66 @@ export function unwrapActor(actor) {
 }
 
 /**
- * Check whether the system prefers dark styles.
- *
- * @returns {boolean}
- */
-export function prefersDark() {
-    return (
-        St.Settings.get().colorScheme === St.SystemColorScheme.PREFER_DARK
-    );
-}
-
-/**
- * The global settings with the dark border color, kept as long as neither
- * changes, so windows share one object.
- *
- * @type {{base: object, color: number[], cfg: import('../utils/types.js').RoundedCornerSettings} | null}
- */
-let darkCfg = null;
-
-/**
- * Get the shadow settings for a window, for its focus and the system's
- * color scheme.
+ * Get the shadow for a window.
  *
  * @param {import('gi://Meta').default.Window} win - The window.
  * @returns {import('../utils/types.js').BoxShadow}
  */
 export function getShadowCfg(win) {
-    const key = win.appears_focused ? 'focused-shadow' : 'unfocused-shadow';
-    return (prefersDark() && getPref(`dark-${key}`)) || getPref(key);
+    return win.appears_focused ? FOCUSED_SHADOW : UNFOCUSED_SHADOW;
 }
 
 /**
- * Get the correct rounded corner setting for a window (custom settings if a
- * window has custom overrides, global settings otherwise). While the system
- * prefers dark, the global settings use the dark border color, if set.
+ * The accent color last read, kept while it stays the same, so all
+ * windows share one border object.
  *
- * @param {import('gi://Meta').default.Window} win - The window to get the settings for.
- * @returns {import('../utils/types.js').RoundedCornerSettings} The matching settings object.
+ * @type {import('../utils/types.js').Border | null}
  */
-export function getRoundedCornersCfg(win) {
-    const customCfg =
-        win.wmClass !== null
-            ? getPref('custom-rounded-corner-settings')[win.wmClass]
-            : null;
-    if (customCfg?.enabled) return customCfg;
+let accentBorder = null;
 
-    const globalCfg = getPref('global-rounded-corner-settings');
-    const color = prefersDark() ? getPref('dark-border-color') : null;
-    if (!color) return globalCfg;
-    if (darkCfg?.base !== globalCfg || darkCfg.color !== color) {
-        darkCfg = {
-            base: globalCfg,
-            color,
-            cfg: {...globalCfg, borderColor: color},
-        };
-    }
-    return darkCfg.cfg;
+/**
+ * Get the border for a window: the focus border in the system's accent
+ * color for the focused window if it is on, the thin libadwaita line
+ * otherwise. The focus border lies inside the window where the line would
+ * be, so the line is not missed.
+ *
+ * @param {import('gi://Meta').default.Window} win - The window.
+ * @returns {import('../utils/types.js').Border}
+ */
+export function getBorder(win) {
+    const width = focusBorderWidth();
+    if (width <= 0 || !win.appears_focused) return BORDER;
+
+    // St maps the accent-color setting to a color and keeps it in the
+    // theme context (update_accent_colors in st-theme-context.c).
+    const [accent] = St.ThemeContext.get_for_stage(global.stage)
+        .get_accent_color();
+    const color = [accent.red, accent.green, accent.blue, accent.alpha]
+        .map(c => c / 255);
+    if (
+        accentBorder?.width !== width ||
+        accentBorder.color.some((c, i) => c !== color[i])
+    )
+        accentBorder = Object.freeze({width, color: Object.freeze(color)});
+    return accentBorder;
 }
 
 /**
  * Compute outer bounds for rounded corners of a window, in the coordinates
  * of the actor that has the effect.
  *
- * @param {import('gi://Meta').default.Window} win - The window.
  * @param {import('gi://Clutter').default.Actor} target - The actor with the
  *   effect, see {@link unwrapActor}. Its size is the buffer size.
  * @param {number[]} offsets - The content offsets `[x, y, width, height]` of the window.
  * @returns {import('../utils/types.js').Bounds}
  */
-export function computeBounds(win, target, [x, y, width, height]) {
-    const bounds = {
+export function computeBounds(target, [x, y, width, height]) {
+    return {
         x1: x,
         y1: y,
         x2: x + target.width + width,
         y2: y + target.height + height,
     };
-
-    // Kitty draws its window decoration by itself, so we need to manually
-    // clip its shadow and recompute the outer bounds for it.
-    if (
-        getPref('tweak-kitty-terminal') &&
-        win.get_client_type() === Meta.WindowClientType.WAYLAND &&
-        win.wmClass === 'kitty'
-    ) {
-        const [x1, y1, x2, y2] = APP_SHADOWS.kitty;
-        bounds.x1 += x1;
-        bounds.y1 += y1;
-        bounds.x2 -= x2;
-        bounds.y2 -= y2;
-    }
-
-    return bounds;
 }
 
 /**
@@ -180,24 +155,17 @@ export function computeShadowActorOffset([
  * The shadow is a pre-rendered image drawn as a 9-slice border image
  * around the window, see utils/shadow_texture.js. The image reaches
  * SHADOW_PADDING beyond the window box, so the inner actor fills the whole
- * shadow actor apart from the window's corner padding.
+ * shadow actor.
  *
  * @param {import('gi://Meta').default.Window} win - The window to update the style for.
  * @param {import('gi://St').default.Bin} actor - The shadow actor to update the style for.
- * @param {import('../utils/types.js').RoundedCornerSettings} cfg - The rounded corner settings of the window.
  * @param {import('../utils/types.js').BoxShadow} shadow - The shadow settings for the window.
  * @returns {boolean} Whether the shadow should be hidden, for maximized and
  *   fullscreen windows.
  */
-export function updateShadowActorStyle(win, actor, cfg, shadow) {
-    const {left, right, top, bottom} = cfg.padding;
-    const actorStyle = `padding: ${top}px ${right}px ${bottom}px ${left}px;`;
-    if (actor.style !== actorStyle) actor.style = actorStyle;
-
-    // Increase the border radius when smoothing is on, using the window's
-    // own settings so the shadow matches custom corners.
+export function updateShadowActorStyle(win, actor, shadow) {
     const image = shadowImage({
-        radius: cfg.borderRadius * (1.0 + cfg.smoothing),
+        radius: RADIUS,
         blur: shadow.blurOffset,
         spread: shadow.spreadRadius,
         offsetX: shadow.horizontalOffset,
@@ -209,10 +177,9 @@ export function updateShadowActorStyle(win, actor, cfg, shadow) {
     if (child.style !== childStyle) child.style = childStyle;
 
     return (
-        !getPref('keep-shadow-for-maximized-fullscreen') &&
-        (win.maximizedHorizontally ||
-            win.maximizedVertically ||
-            coversMonitor(win))
+        win.maximizedHorizontally ||
+        win.maximizedVertically ||
+        coversMonitor(win)
     );
 }
 
@@ -292,28 +259,17 @@ export function isOpaque(actor) {
 
 /**
  * @typedef {object} AppInfo
- * @property {'LibHandy' | 'LibAdwaita' | 'Other'} type - The toolkit the app
- *   is built with, as far as it matters for skipping.
+ * @property {boolean} libadwaita - Whether the app uses libadwaita, which
+ *   draws corners, line and shadow itself.
  * @property {boolean} chromium - Whether the app is Chromium or Electron.
  */
-
-/**
- * Check whether the app type has to be known before deciding about the
- * effect. Only the skip settings depend on it.
- *
- * @returns {boolean}
- */
-export function needsAppType() {
-    return getPref('skip-libadwaita-app') || getPref('skip-libhandy-app');
-}
 
 /**
  * Check whether a window should have rounded corners.
  *
  * @param {import('gi://Meta').default.Window} win - The window to check.
  * @param {AppInfo | null} app - What the app is built with, or null if that
- *   is not known yet. Windows are left alone until it is known, if a skip
- *   setting needs it.
+ *   is not known yet. Windows are left alone until it is known.
  * @returns {boolean} Whether the window should have rounded corners.
  */
 export function shouldEnableEffect(win, app) {
@@ -324,14 +280,8 @@ export function shouldEnableEffect(win, app) {
         return false;
     }
 
-    // Windows without a class cannot be matched, nor can app settings.
+    // Windows without a class are not rounded, as upstream.
     if (win.wmClass === null) {
-        return false;
-    }
-    // Skip blacklisted apps, or all but the listed ones as a whitelist.
-    const isException = getPref('blacklist').includes(win.wmClass);
-    const enableExceptions = getPref('whitelist');
-    if (isException !== enableExceptions) {
         return false;
     }
 
@@ -344,34 +294,18 @@ export function shouldEnableEffect(win, app) {
         return false;
     }
 
-    // Skip libhandy/libadwaita applications according to settings.
-    if (needsAppType()) {
-        if (app === null) return false;
-        if (
-            getPref('skip-libadwaita-app') &&
-            app.type === 'LibAdwaita' &&
-            !isException
-        ) {
-            return false;
-        }
-        if (
-            getPref('skip-libhandy-app') &&
-            app.type === 'LibHandy' &&
-            !isException
-        ) {
-            return false;
-        }
-    }
+    // libadwaita apps draw corners, line and shadow themselves (libadwaita
+    // 1.10). They only get the effect for the focus border, which then
+    // draws nothing else, see event_handlers.js.
+    if (app === null || (app.libadwaita && focusBorderWidth() <= 0))
+        return false;
 
-    // Skip maximized/fullscreen windows according to settings. Borderless
-    // windows in monitor size count as fullscreen.
-    const maximized = win.maximizedHorizontally || win.maximizedVertically;
-    const fullscreen = coversMonitor(win);
-    const cfg = getRoundedCornersCfg(win);
-    return (
-        !(maximized || fullscreen) ||
-        (maximized && !fullscreen && cfg.keepRoundedCorners.maximized) ||
-        (fullscreen && cfg.keepRoundedCorners.fullscreen)
+    // Maximized and fullscreen windows stay square. Borderless windows in
+    // monitor size count as fullscreen.
+    return !(
+        win.maximizedHorizontally ||
+        win.maximizedVertically ||
+        coversMonitor(win)
     );
 }
 
@@ -395,13 +329,15 @@ export function isGame(win) {
 
 /** Markers in /proc/<pid>/maps and what they mean. */
 const MAPS_MARKERS = new Map([
-    ['libhandy-1.so', {type: 'LibHandy', chromium: false}],
-    ['libadwaita-1.so', {type: 'LibAdwaita', chromium: false}],
-    ['/dev/shm/.org.chromium.Chromium', {type: 'Other', chromium: true}],
+    ['libadwaita-1.so', Object.freeze({libadwaita: true, chromium: false})],
+    [
+        '/dev/shm/.org.chromium.Chromium',
+        Object.freeze({libadwaita: false, chromium: true}),
+    ],
 ]);
 
 /** @type {AppInfo} */
-const OTHER_APP = Object.freeze({type: 'Other', chromium: false});
+export const OTHER_APP = Object.freeze({libadwaita: false, chromium: false});
 
 /**
  * Detection results per process, shared by all windows of the process.
@@ -469,6 +405,6 @@ async function readAppInfo(win, pid) {
     }
 
     const app = (marker && MAPS_MARKERS.get(marker)) || OTHER_APP;
-    logDebug(() => `${win.wmClass}: ${app.type}, chromium: ${app.chromium}`);
+    logDebug(() => `${win.wmClass}: libadwaita: ${app.libadwaita}, chromium: ${app.chromium}`);
     return app;
 }

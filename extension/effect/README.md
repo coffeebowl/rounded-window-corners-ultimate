@@ -11,7 +11,7 @@ the overview stay sharp.
 ## `rounded_corners_effect.js`
 
 This effect loads the actual Fragment shader that rounds the corners and draws
-custom borders for the window. The class applies the effect and provides a
+the border inside the window edge. The class applies the effect and provides a
 function to change uniforms passed to the effect.
 
 ## `shader`
