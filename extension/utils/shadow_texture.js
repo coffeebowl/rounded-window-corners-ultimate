@@ -2,28 +2,29 @@
  * @file Renders the image for a window shadow, to be drawn as a 9-slice
  * border image around the window.
  *
- * The image reproduces what the extension used to draw per window with an
- * offscreen effect: a white rounded box with a CSS box-shadow, where the
- * clip shader (formerly clip_shadow.frag) turned the white box transparent.
- * Rendering it once per shadow style saves an offscreen framebuffer of the
- * window's size per window.
- *
- * St's box-shadow, which this follows (st-private.c, clutter-blur.c in
- * GNOME 51): the shape's alpha is saturated to 1 wherever it is above 0,
- * then blurred with a Gaussian of sigma = blur / 2, and multiplied with the
- * shadow color's alpha.
+ * The shadow follows CSS box-shadow as GTK draws it for libadwaita windows
+ * (gskgpuboxshadow.glsl in GTK 4.24): every layer is the window's rounded
+ * box, grown by the spread with the corner radius grown alike, blurred
+ * with a Gaussian of sigma = blur / 2. Layers are painted over each other.
+ * Like CSS, the shadow is not drawn inside the window box.
  *
  * This module has no imports, so it can be unit tested with `gjs -m`.
  */
 
 /**
- * @typedef {object} ShadowStyle
- * @property {number} radius - Corner radius of the window box.
+ * One layer of a box-shadow, always black and centered on the window.
+ *
+ * @typedef {object} ShadowLayer
  * @property {number} blur - CSS blur radius.
  * @property {number} spread - CSS spread radius, may be negative.
- * @property {number} offsetX - Horizontal offset.
- * @property {number} offsetY - Vertical offset.
- * @property {number} opacity - Shadow opacity from 0 to 100.
+ * @property {number} alpha - Opacity from 0 to 1.
+ */
+
+/**
+ * @typedef {object} ShadowStyle
+ * @property {number} radius - Corner radius of the window box.
+ * @property {readonly ShadowLayer[]} layers - Layers, the top one first, as
+ *   in CSS. All are black, so the order does not change the result.
  */
 
 /**
@@ -39,6 +40,12 @@
 
 /** Samples per axis for anti-aliased coverage. */
 const SUPERSAMPLING = 4;
+
+/**
+ * How far a Gaussian reaches before it can be neglected, in sigmas. At 3,
+ * what is left is below half a level of 8 bits for the alphas here.
+ */
+const GAUSS_REACH = 3;
 
 /**
  * Coverage of a pixel by a rounded rectangle, from 0 to 1.
@@ -83,7 +90,7 @@ function roundedRectCoverage(px, py, x1, y1, x2, y2, r) {
 function gaussianBlur(data, width, height, sigma) {
     if (sigma <= 0) return;
 
-    const reach = Math.ceil(sigma * 3);
+    const reach = Math.ceil(sigma * GAUSS_REACH);
     const kernel = new Float32Array(reach * 2 + 1);
     let sum = 0;
     for (let i = -reach; i <= reach; i++) {
@@ -116,168 +123,68 @@ function gaussianBlur(data, width, height, sigma) {
 }
 
 /**
+ * How far a layer reaches beyond the window box.
+ *
+ * @param {ShadowLayer} layer
+ * @returns {number}
+ */
+function layerReach(layer) {
+    return Math.max(0, layer.spread + (Math.max(0, layer.blur) / 2) * GAUSS_REACH);
+}
+
+/**
  * Work out the image layout for a style.
  *
  * @param {ShadowStyle} style - How the shadow looks.
  * @param {number} [margin] - How far the image reaches beyond the window
- *   box. The shadow is cut off there, like the shadow actor's padding used
- *   to cut it off. By default just as far as the shadow reaches.
+ *   box. The shadow is cut off there. By default just as far as the
+ *   shadow reaches.
  * @returns {{margin: number, corner: number, slice: number, size: number}}
  *   `corner` is how far from a box corner the shadow still differs from the
  *   straight edges.
  */
 export function shadowLayout(style, margin) {
     const radius = Math.max(0, style.radius);
-    const blur = Math.max(0, style.blur);
-    const spread = style.spread;
-    const offset = Math.max(Math.abs(style.offsetX), Math.abs(style.offsetY));
-
-    const reach = Math.max(0, Math.ceil(blur + spread + offset) + 1);
-    const m = margin ?? reach;
-    const corner = Math.ceil(radius + Math.max(spread, 0) + blur + offset) + 2;
+    let reach = 0;
+    let inward = 0;
+    for (const layer of style.layers) {
+        reach = Math.max(reach, layerReach(layer));
+        // How far along the edges the rounded corner of the layer and its
+        // blur reach.
+        const blur = (Math.max(0, layer.blur) / 2) * GAUSS_REACH;
+        inward = Math.max(inward, radius + Math.max(layer.spread, 0) + blur);
+    }
+    const m = margin ?? Math.ceil(reach) + 1;
+    const corner = Math.ceil(inward) + 2;
     return {margin: m, corner, slice: m + corner, size: (m + corner) * 2 + 1};
 }
 
 /**
- * Sample a single-channel image with bilinear filtering, 0 outside.
+ * Render the alpha of one layer.
  *
- * @param {Float32Array} data
- * @param {number} width
- * @param {number} height
- * @param {number} x - Position in texels, texel centers at .5.
- * @param {number} y
- * @returns {number}
- */
-function sampleBilinear(data, width, height, x, y) {
-    const fx = x - 0.5;
-    const fy = y - 0.5;
-    const ix = Math.floor(fx);
-    const iy = Math.floor(fy);
-    const tx = fx - ix;
-    const ty = fy - iy;
-    // Clamp to the edge, like a texture sampled with CLAMP_TO_EDGE.
-    const at = (xx, yy) => {
-        const cx = Math.min(Math.max(xx, 0), width - 1);
-        const cy = Math.min(Math.max(yy, 0), height - 1);
-        return data[cy * width + cx];
-    };
-    return (
-        at(ix, iy) * (1 - tx) * (1 - ty) +
-        at(ix + 1, iy) * tx * (1 - ty) +
-        at(ix, iy + 1) * (1 - tx) * ty +
-        at(ix + 1, iy + 1) * tx * ty
-    );
-}
-
-/**
- * Map an output coordinate of a 9-sliced shadow to a texture coordinate
- * between 0 and 1, along one axis.
- *
- * @param {number} pos - Output position.
- * @param {number} start - Start of the shadow box.
- * @param {number} first - End of the first slice.
- * @param {number} last - Start of the last slice.
- * @param {number} end - End of the shadow box.
- * @param {number} sFirst - Texture coordinate of the first slice's end.
- * @param {number} sLast - Texture coordinate of the last slice's start.
- * @returns {number | null} The texture coordinate, or null outside.
- */
-function sliceMap(pos, start, first, last, end, sFirst, sLast) {
-    if (pos < start || pos >= end) return null;
-    if (pos < first) return ((pos - start) / (first - start)) * sFirst;
-    if (pos < last)
-        return sFirst + ((pos - first) / Math.max(last - first, 1e-6)) * (sLast - sFirst);
-    return sLast + ((pos - last) / (end - last)) * (1 - sLast);
-}
-
-/**
- * Compute the alpha of St's box-shadow for a rounded box, the way St 51
- * paints it for a widget larger than its minimum shadow size
- * (st_theme_node_prerender_shadow, _st_create_shadow_pipeline and
- * st_theme_node_paint_sliced_shadow):
- *
- * 1. The silhouette is drawn at the minimum size, 2 * radius + 2 * blur + 1.
- * 2. Its alpha is saturated and it is blurred into a texture with a margin
- *    of `blur` pixels, sigma = blur / 2.
- * 3. That texture is 9-sliced onto the box grown by the spread. The slice
- *    math assumes a margin of ceil(0.75 * blur) * 2, so the outer falloff is
- *    stretched; the spread scales the slices.
- *
- * @param {{x1: number, y1: number, x2: number, y2: number}} box - The box.
- * @param {number} radius
- * @param {number} blur
- * @param {number} spread
- * @param {number} offsetX
- * @param {number} offsetY
+ * @param {ShadowLayer} layer
+ * @param {number} radius - Corner radius of the window box.
+ * @param {{x1: number, y1: number, x2: number, y2: number}} box - The window box.
  * @param {number} size - Size of the square output image.
- * @returns {Float32Array} Shadow alpha before the color's opacity.
+ * @returns {Float32Array}
  */
-function stBoxShadow(box, radius, blur, spread, offsetX, offsetY, size) {
-    // 1. and 2.: the blurred minimum-size texture.
-    const center = blur > 0 ? 2 * blur + 1 : 1;
-    const minSize = 2 * radius + center;
-    const sampling = Math.ceil(blur);
-    const texSize = Math.ceil(minSize) + 2 * sampling;
-    const texture = new Float32Array(texSize * texSize);
-    for (let y = 0; y < texSize; y++) {
-        for (let x = 0; x < texSize; x++) {
-            const coverage = roundedRectCoverage(
-                x,
-                y,
-                sampling,
-                sampling,
-                sampling + minSize,
-                sampling + minSize,
-                radius,
-            );
-            texture[y * texSize + x] = coverage > 0 ? 1 : 0;
-        }
-    }
-    gaussianBlur(texture, texSize, texSize, blur / 2);
-
-    // 3.: the slice geometry.
-    const blurRadius = blur === 0 ? 0 : Math.ceil((1.5 * blur) / 2) * 2;
-    const assumedSize = minSize + 2 * blurRadius;
-    const sliceIn = blurRadius + blur + radius;
-    const sFirst = sliceIn / assumedSize;
-    const sLast = 1 - sFirst;
-
-    /**
-     * @param {number} lo - Box start.
-     * @param {number} hi - Box end.
-     * @param {number} offset
-     */
-    const axis = (lo, hi, offset) => {
-        const start = lo + offset - blurRadius - spread;
-        const length = hi - lo + 2 * blurRadius;
-        const factor = (length + 2 * spread) / length;
-        const end = start + length + 2 * spread;
-        return {
-            start,
-            end,
-            first: start + sliceIn * factor,
-            last: end - sliceIn * factor,
-        };
-    };
-    const ax = axis(box.x1, box.x2, offsetX);
-    const ay = axis(box.y1, box.y2, offsetY);
-
+function renderLayer(layer, radius, box, size) {
+    const {spread} = layer;
     const out = new Float32Array(size * size);
     for (let y = 0; y < size; y++) {
-        const v = sliceMap(y + 0.5, ay.start, ay.first, ay.last, ay.end, sFirst, sLast);
-        if (v === null) continue;
         for (let x = 0; x < size; x++) {
-            const u = sliceMap(x + 0.5, ax.start, ax.first, ax.last, ax.end, sFirst, sLast);
-            if (u === null) continue;
-            out[y * size + x] = sampleBilinear(
-                texture,
-                texSize,
-                texSize,
-                u * texSize,
-                v * texSize,
+            out[y * size + x] = roundedRectCoverage(
+                x,
+                y,
+                box.x1 - spread,
+                box.y1 - spread,
+                box.x2 + spread,
+                box.y2 + spread,
+                Math.max(radius + spread, 0),
             );
         }
     }
+    gaussianBlur(out, size, size, Math.max(0, layer.blur) / 2);
     return out;
 }
 
@@ -290,51 +197,40 @@ function stBoxShadow(box, radius, blur, spread, offsetX, offsetY, size) {
  */
 export function renderShadow(style, fixedMargin) {
     const radius = Math.max(0, style.radius);
-    const blur = Math.max(0, style.blur);
-    const spread = style.spread;
     const {margin, corner, size} = shadowLayout(style, fixedMargin);
 
-    const box = corner * 2 + 1;
-    const x1 = margin;
-    const y1 = margin;
-    const x2 = margin + box;
-    const y2 = margin + box;
+    const side = corner * 2 + 1;
+    const box = {x1: margin, y1: margin, x2: margin + side, y2: margin + side};
 
-    const shadow = stBoxShadow(
-        {x1, y1, x2, y2},
-        radius,
-        blur,
-        spread,
-        style.offsetX,
-        style.offsetY,
-        size,
-    );
+    // Black layers over each other: what shows through all of them is the
+    // product of their transparencies.
+    const clear = new Float32Array(size * size).fill(1);
+    for (const layer of style.layers) {
+        const alpha = Math.min(Math.max(layer.alpha, 0), 1);
+        if (alpha <= 0) continue;
+        const shape = renderLayer(layer, radius, box, size);
+        for (let i = 0; i < clear.length; i++) clear[i] *= 1 - shape[i] * alpha;
+    }
 
     // The shadow reaches this far under the window, so it still lies below
     // the window's antialiased edge. Further in it is transparent, which
     // keeps it out of translucent windows.
     const inset = 1;
 
-    const alpha = Math.min(Math.max(style.opacity / 100, 0), 1);
     const pixels = new Uint8Array(size * size * 4);
     for (let y = 0; y < size; y++) {
         for (let x = 0; x < size; x++) {
             const i = y * size + x;
-            const a = shadow[i] * alpha;
             const inside = roundedRectCoverage(
                 x,
                 y,
-                x1 + inset,
-                y1 + inset,
-                x2 - inset,
-                y2 - inset,
+                box.x1 + inset,
+                box.y1 + inset,
+                box.x2 - inset,
+                box.y2 - inset,
                 Math.max(radius - inset, 0),
             );
-
-            // Squared like the old clip shader did, which multiplied the
-            // shadow by its own alpha. Always black: the clip shader left
-            // the antialiased edge of its white box as light pixels.
-            pixels[i * 4 + 3] = Math.round(Math.min(a * a * (1 - inside), 1) * 255);
+            pixels[i * 4 + 3] = Math.round((1 - clear[i]) * (1 - inside) * 255);
         }
     }
 
@@ -349,13 +245,9 @@ export function renderShadow(style, fixedMargin) {
  */
 export function shadowKey(style) {
     const text = JSON.stringify([
-        3, // Bump when the rendering changes.
+        4, // Bump when the rendering changes.
         style.radius,
-        style.blur,
-        style.spread,
-        style.offsetX,
-        style.offsetY,
-        style.opacity,
+        style.layers.map(l => [l.blur, l.spread, l.alpha]),
     ]);
     let hash = 0x811c9dc5;
     for (let i = 0; i < text.length; i++) {

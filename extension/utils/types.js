@@ -17,14 +17,3 @@
  * @property {number} width - Width in pixels.
  * @property {readonly number[]} color - Red, green, blue and alpha from 0 to 1.
  */
-
-/**
- * Window shadow properties.
- *
- * @typedef {object} BoxShadow
- * @property {number} opacity
- * @property {number} spreadRadius
- * @property {number} blurOffset
- * @property {number} verticalOffset
- * @property {number} horizontalOffset
- */

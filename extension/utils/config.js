@@ -19,27 +19,32 @@ export const BORDER = Object.freeze({
 });
 
 /**
- * Shadow of the focused window.
+ * The ring around every window, `0 0 0 1px rgb(0 0 0 / 5%)`, part of the
+ * shadow. It separates windows from a background of the same color.
  *
- * @type {import('./types.js').BoxShadow}
+ * @type {import('./shadow_texture.js').ShadowLayer}
  */
-export const FOCUSED_SHADOW = Object.freeze({
-    horizontalOffset: 0,
-    verticalOffset: 4,
-    blurOffset: 28,
-    spreadRadius: 4,
-    opacity: 60,
-});
+const RING = Object.freeze({blur: 0, spread: 1, alpha: 0.05});
 
 /**
- * Shadow of unfocused windows.
+ * Shadow of the focused window, `window.csd`:
+ * `0 0 14px 5px rgb(0 0 0 / 15%), 0 0 5px 2px rgb(0 0 0 / 10%)` and the ring.
  *
- * @type {import('./types.js').BoxShadow}
+ * @type {readonly import('./shadow_texture.js').ShadowLayer[]}
  */
-export const UNFOCUSED_SHADOW = Object.freeze({
-    horizontalOffset: 0,
-    verticalOffset: 2,
-    blurOffset: 12,
-    spreadRadius: -1,
-    opacity: 65,
-});
+export const FOCUSED_SHADOW = Object.freeze([
+    Object.freeze({blur: 14, spread: 5, alpha: 0.15}),
+    Object.freeze({blur: 5, spread: 2, alpha: 0.1}),
+    RING,
+]);
+
+/**
+ * Shadow of unfocused windows, `window.csd:backdrop`:
+ * `0 0 10px 5px rgb(0 0 0 / 8%)` and the ring.
+ *
+ * @type {readonly import('./shadow_texture.js').ShadowLayer[]}
+ */
+export const UNFOCUSED_SHADOW = Object.freeze([
+    Object.freeze({blur: 10, spread: 5, alpha: 0.08}),
+    RING,
+]);

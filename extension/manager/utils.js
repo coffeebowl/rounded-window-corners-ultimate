@@ -53,7 +53,7 @@ export function unwrapActor(actor) {
  * Get the shadow for a window.
  *
  * @param {import('gi://Meta').default.Window} win - The window.
- * @returns {import('../utils/types.js').BoxShadow}
+ * @returns {readonly import('../utils/shadow_texture.js').ShadowLayer[]}
  */
 export function getShadowCfg(win) {
     return win.appears_focused ? FOCUSED_SHADOW : UNFOCUSED_SHADOW;
@@ -159,19 +159,12 @@ export function computeShadowActorOffset([
  *
  * @param {import('gi://Meta').default.Window} win - The window to update the style for.
  * @param {import('gi://St').default.Bin} actor - The shadow actor to update the style for.
- * @param {import('../utils/types.js').BoxShadow} shadow - The shadow settings for the window.
+ * @param {readonly import('../utils/shadow_texture.js').ShadowLayer[]} shadow - The shadow of the window.
  * @returns {boolean} Whether the shadow should be hidden, for maximized and
  *   fullscreen windows.
  */
 export function updateShadowActorStyle(win, actor, shadow) {
-    const image = shadowImage({
-        radius: RADIUS,
-        blur: shadow.blurOffset,
-        spread: shadow.spreadRadius,
-        offsetX: shadow.horizontalOffset,
-        offsetY: shadow.verticalOffset,
-        opacity: shadow.opacity,
-    });
+    const image = shadowImage({radius: RADIUS, layers: shadow});
     const childStyle = `border-image: url("${image.uri}") ${image.slice};`;
     const child = actor.firstChild;
     if (child.style !== childStyle) child.style = childStyle;
