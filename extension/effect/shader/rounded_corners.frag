@@ -1,8 +1,12 @@
 // Based on this shader from Mutter:
 // https://gitlab.gnome.org/GNOME/mutter/-/blob/main/src/compositor/meta-background-content.c
+//
+// The shadow math is based on gsk/gpu/shaders/gskgpuboxshadow.glsl from
+// GTK 4.24 (LGPL-2.1-or-later), which draws the shadow of libadwaita
+// windows.
 
 // This shader is what actually does the most important part of the extension -
-// corner rounding.
+// corner rounding, and the shadow around the window.
 //
 // The way Fragment shaders work in GNOME is that they receive the information
 // about a point on the screen, process it in some way, and set the `cogl_color_out`
@@ -42,8 +46,17 @@ uniform float borderedAreaClipRadius;
 uniform float clipToWindow;
 
 // Where the offscreen texture lies in actor coordinates, as {x, y, width,
-// height}. Clutter pads the texture, so it is larger than the actor.
+// height}. Clutter pads the texture, and the shadow needs room around the
+// window, so it is larger than the actor.
 uniform vec4 textureRect;
+
+// The layers of the window's shadow, like CSS box-shadow, as {blur radius,
+// spread, alpha}. Every layer is the rounded window box grown by the spread
+// and blurred with a Gaussian of sigma = blur / 2, black, and drawn only
+// outside the window. A layer with alpha 0 costs nothing.
+uniform vec3 shadow0;
+uniform vec3 shadow1;
+uniform vec3 shadow2;
 
 // Calculate how much of the screen pixel at a point lies within the window.
 //
@@ -72,6 +85,73 @@ float getPointOpacity(vec2 p, vec2 pixel, vec4 bounds, float clipRadius) {
     return clamp(coverage + 0.5, 0.0, 1.0);
 }
 
+// The error function, approximated as in Abramowitz and Stegun 7.1.27.
+vec2 erf(vec2 x) {
+    vec2 s = sign(x);
+    vec2 a = abs(x);
+    vec2 d = 1.0 + (0.278393 + (0.230389 + 0.078108 * (a * a)) * a) * a;
+    d *= d;
+    return s - s / (d * d);
+}
+
+// How much of a standard Gaussian lies between range.x and range.y.
+float gaussShare(vec2 range) {
+    vec2 e = erf(range * 0.70710678);
+    return 0.5 * (e.y - e.x);
+}
+
+// What a corner takes away from a blurred box: the blurred part of the
+// corner square that lies outside the rounded corner. `q` is the point's
+// distance from the box corner, positive into the box, and `r` the corner
+// radius, both in sigmas. The integral over the rows of the corner is
+// summed at a few points; beyond 3 sigmas nothing is left.
+float blurredCornerCut(vec2 q, float r) {
+    if (r <= 0.0 || min(q.x, q.y) <= -3.0 || max(q.x, q.y) - r >= 3.0)
+        return 0.0;
+
+    float start = max(q.y - 3.0, 0.0);
+    float end = min(q.y + 3.0, r);
+    float step = (end - start) / 8.0;
+    float sum = 0.0;
+    for (int i = 0; i < 8; i++) {
+        float y = start + (float(i) + 0.5) * step;
+        // The width of the cut-off part in this row.
+        float dy = r - y;
+        float cut = r - sqrt(max(r * r - dy * dy, 0.0));
+        float density = exp(-0.5 * (q.y - y) * (q.y - y)) * 0.39894228;
+        sum += density * gaussShare(vec2(-q.x, cut - q.x));
+    }
+    return sum * step;
+}
+
+// How much one shadow layer covers a point, from 0 to 1.
+float getShadowOpacity(vec2 p, vec2 pixel, vec3 layer) {
+    float spread = layer.y;
+    vec4 box = bounds + vec4(-spread, -spread, spread, spread);
+    // The corners grow with the spread, square ones stay square.
+    float radius = clipRadius > 0.0 ? max(clipRadius + spread, 0.0) : 0.0;
+    if (layer.x <= 0.0)
+        return getPointOpacity(p, pixel, box, radius);
+
+    float sigma = layer.x * 0.5;
+    // A blurred rectangle is a product of two blurred edges.
+    float rect = gaussShare((box.xz - p.x) / sigma) * gaussShare((box.yw - p.y) / sigma);
+    // Only the nearest corner is taken away. The others are farther than
+    // 3 sigmas, unless the window is tiny.
+    vec2 inset = min(p - box.xy, box.zw - p);
+    return max(rect - blurredCornerCut(inset / sigma, radius / sigma), 0.0);
+}
+
+// How much the shadow covers a point: black layers over each other let
+// through the product of their transparencies.
+float getShadowAlpha(vec2 p, vec2 pixel) {
+    float clear = 1.0;
+    if (shadow0.z > 0.0) clear *= 1.0 - shadow0.z * getShadowOpacity(p, pixel, shadow0);
+    if (shadow1.z > 0.0) clear *= 1.0 - shadow1.z * getShadowOpacity(p, pixel, shadow1);
+    if (shadow2.z > 0.0) clear *= 1.0 - shadow2.z * getShadowOpacity(p, pixel, shadow2);
+    return 1.0 - clear;
+}
+
 // This is the main function of the shader. It's what is actually being called
 // when rendering a point to the screen. It has no return value; as explained
 // at the beginning of the file, the `cogl_color_out` variable is used to set
@@ -96,6 +176,13 @@ void main() {
     float borderedAreaAlpha = getPointOpacity(p, pixel, borderedAreaBounds, borderedAreaClipRadius);
     float borderAlpha = max(pointAlpha - borderedAreaAlpha, 0.0);
     float windowAlpha = mix(1.0, pointAlpha, clipToWindow);
-    cogl_color_out = cogl_color_out * (windowAlpha - borderAlpha * borderColor.a)
-                   + borderPaintColor * borderAlpha;
+    vec4 color = cogl_color_out * (windowAlpha - borderAlpha * borderColor.a)
+               + borderPaintColor * borderAlpha;
+
+    // The shadow lies below the window and shows where the window does not
+    // cover the pixel, so never through translucent windows. It fades with
+    // the window, like the border.
+    if (windowAlpha < 1.0)
+        color.a += getShadowAlpha(p, pixel) * (1.0 - windowAlpha) * cogl_color_in.a;
+    cogl_color_out = color;
 }

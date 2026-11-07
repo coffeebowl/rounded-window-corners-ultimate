@@ -23,7 +23,7 @@ export const BORDER = Object.freeze({
  * The ring around every window, `0 0 0 1px rgb(0 0 0 / 5%)`, part of the
  * shadow. It separates windows from a background of the same color.
  *
- * @type {import('./shadow_texture.js').ShadowLayer}
+ * @type {import('./types.js').ShadowLayer}
  */
 const RING = Object.freeze({blur: 0, spread: 1, alpha: 0.05});
 
@@ -31,7 +31,7 @@ const RING = Object.freeze({blur: 0, spread: 1, alpha: 0.05});
  * Shadow of the focused window, `window.csd`:
  * `0 0 14px 5px rgb(0 0 0 / 15%), 0 0 5px 2px rgb(0 0 0 / 10%)` and the ring.
  *
- * @type {readonly import('./shadow_texture.js').ShadowLayer[]}
+ * @type {readonly import('./types.js').ShadowLayer[]}
  */
 export const FOCUSED_SHADOW = Object.freeze([
     Object.freeze({blur: 14, spread: 5, alpha: 0.15}),
@@ -41,11 +41,21 @@ export const FOCUSED_SHADOW = Object.freeze([
 
 /**
  * Shadow of unfocused windows, `window.csd:backdrop`:
- * `0 0 10px 5px rgb(0 0 0 / 8%)` and the ring.
+ * `0 0 14px 5px transparent, 0 0 10px 5px rgb(0 0 0 / 8%)` and the ring.
+ * The transparent layer matches the first focused one, so a focus change
+ * can blend layer by layer, as libadwaita's transition does.
  *
- * @type {readonly import('./shadow_texture.js').ShadowLayer[]}
+ * @type {readonly import('./types.js').ShadowLayer[]}
  */
 export const UNFOCUSED_SHADOW = Object.freeze([
+    Object.freeze({blur: 14, spread: 5, alpha: 0}),
     Object.freeze({blur: 10, spread: 5, alpha: 0.08}),
     RING,
 ]);
+
+/**
+ * How long losing the focus blends the shadow over, with CSS `ease-out`:
+ * `window.csd:backdrop` has `transition: box-shadow 200ms ease-out`.
+ * Gaining the focus switches at once, since `window.csd` has none.
+ */
+export const SHADOW_TRANSITION_MS = 200;

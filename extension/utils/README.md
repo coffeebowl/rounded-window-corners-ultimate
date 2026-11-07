@@ -20,11 +20,11 @@ that older versions kept in the cache directory.
 
 Provides wrapper functions for printing out debug messages.
 
-## `shadow_texture.js`
+## `shadow.js`
 
-Renders the shadow image for a shadow style, like CSS box-shadow in GTK: a
-blurred rounded box with a transparent middle, 9-sliced around the window by
-`effect/shadow_actor.js`.
+The shadow as CSS box-shadow layers: how much room it needs around the
+window, and the layers between the focused and the unfocused look. Has no
+imports, so it can be unit tested.
 
 ## `settings.js`
 

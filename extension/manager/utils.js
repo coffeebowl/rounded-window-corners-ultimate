@@ -7,13 +7,7 @@ import GObject from 'gi://GObject';
 import Meta from 'gi://Meta';
 import St from 'gi://St';
 
-import {
-    BORDER,
-    FOCUSED_SHADOW,
-    RADIUS,
-    UNFOCUSED_SHADOW,
-} from '../utils/config.js';
-import {SHADOW_PADDING} from '../utils/constants.js';
+import {BORDER} from '../utils/config.js';
 import {findInFile} from '../utils/file.js';
 import {logDebug, logError} from '../utils/log.js';
 import {focusBorderWidth} from '../utils/settings.js';
@@ -46,20 +40,6 @@ export function unwrapActor(actor) {
             return child;
     }
     return null;
-}
-
-/** Shadow styles, created once so shadow actors can compare them. */
-const FOCUSED_STYLE = Object.freeze({radius: RADIUS, layers: FOCUSED_SHADOW});
-const UNFOCUSED_STYLE = Object.freeze({radius: RADIUS, layers: UNFOCUSED_SHADOW});
-
-/**
- * Get the shadow for a window.
- *
- * @param {import('gi://Meta').default.Window} win - The window.
- * @returns {import('../utils/shadow_texture.js').ShadowStyle}
- */
-export function getShadowCfg(win) {
-    return win.appears_focused ? FOCUSED_STYLE : UNFOCUSED_STYLE;
 }
 
 /**
@@ -115,58 +95,6 @@ export function computeBounds(win) {
     const x1 = frame.x - buffer.x;
     const y1 = frame.y - buffer.y;
     return {x1, y1, x2: x1 + frame.width, y2: y1 + frame.height};
-}
-
-/**
- * Compute the offset of actual window contents from the entire window buffer.
- *
- * @param {import('gi://Meta').default.Window} window - The window to compute the offset for.
- * @returns {number[]} The content offsets of the window (x, y, width, height).
- */
-export function computeWindowContentsOffset(window) {
-    const bufferRect = window.get_buffer_rect();
-    const frameRect = window.get_frame_rect();
-    return [
-        frameRect.x - bufferRect.x,
-        frameRect.y - bufferRect.y,
-        frameRect.width - bufferRect.width,
-        frameRect.height - bufferRect.height,
-    ];
-}
-
-/**
- * Compute the offset of the shadow actor for a window.
- *
- * @param {number[]} offsets - The content offsets `[x, y, width, height]` of the window actor.
- * @returns {number[]}
- */
-export function computeShadowActorOffset([
-    offsetX,
-    offsetY,
-    offsetWidth,
-    offsetHeight,
-]) {
-    return [
-        offsetX - SHADOW_PADDING,
-        offsetY - SHADOW_PADDING,
-        2 * SHADOW_PADDING + offsetWidth,
-        2 * SHADOW_PADDING + offsetHeight,
-    ];
-}
-
-/**
- * Show the right shadow on a shadow actor.
- *
- * @param {import('gi://Meta').default.Window} win - The window to update the shadow for.
- * @param {import('../effect/shadow_actor.js').ShadowActor} actor - Its shadow actor.
- * @param {import('../utils/shadow_texture.js').ShadowStyle} style - The shadow of the window.
- * @returns {boolean} Whether the shadow should be hidden, for maximized and
- *   fullscreen windows.
- */
-export function updateShadowActorStyle(win, actor, style) {
-    actor.setStyle(style);
-
-    return isMaximized(win) || coversMonitor(win);
 }
 
 /**

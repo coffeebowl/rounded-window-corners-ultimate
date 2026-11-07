@@ -10,14 +10,12 @@ import St from 'gi://St';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import {logDebug, logError} from '../utils/log.js';
-import {clearShadowTextures} from '../effect/shadow_actor.js';
 import {removeOldShadowFiles} from '../utils/file.js';
 import {focusBorderWidth, settings} from '../utils/settings.js';
 import {findCovered} from './coverage.js';
 import * as handlers from './event_handlers.js';
 import {coversMonitor, isOpaque, monitorContaining} from './utils.js';
 import {
-    DEFORM,
     FOCUS,
     GEOMETRY,
     MINIMIZE,
@@ -111,19 +109,10 @@ export function enableEffect() {
         // Add the effect to new windows when they are opened.
         'window-created',
         (_, win) => track(win.get_compositor_private()),
-        // When windows are restacked, the order of shadow actors as well.
         'restacked',
-        () => {
-            handlers.onRestacked();
-            queueCoverage();
-        },
+        () => queueCoverage(),
         'in-fullscreen-changed',
         () => queueCoverage(),
-        // "Compiz windows effect" wobbles windows from these signals.
-        'grab-op-begin',
-        (_, win) => withWindow(win, state => queueUpdate(state, DEFORM)),
-        'grab-op-end',
-        (_, win) => withWindow(win, state => queueUpdate(state, DEFORM)),
         owner,
     );
 
@@ -148,10 +137,6 @@ export function enableEffect() {
         (_, actor) => withState(actor, state => queueUpdate(state, MINIMIZE)),
         'unminimize',
         (_, actor) => withState(actor, state => queueUpdate(state, MINIMIZE)),
-        'size-change',
-        (_, actor) => withState(actor, state => queueUpdate(state, DEFORM)),
-        'size-changed',
-        (_, actor) => withState(actor, state => queueUpdate(state, DEFORM)),
         // The close animation starts, remove the effect from the window.
         'destroy',
         (_, actor) => withState(actor, untrack),
@@ -166,7 +151,6 @@ export function disableEffect() {
     coveragePausedBy.clear();
 
     for (const state of [...states.values()]) untrack(state);
-    clearShadowTextures();
 
     settings?.disconnectObject(owner);
     St.ThemeContext.get_for_stage(global.stage).disconnectObject(owner);
@@ -219,10 +203,7 @@ function track(actor) {
         'child-added',
         () => queueUpdate(state, STATE),
         'notify::visible',
-        () => {
-            handlers.syncShadowVisible(state);
-            queueCoverage();
-        },
+        () => queueCoverage(),
         // Windows fade, scale and move during animations, for example when
         // going fullscreen. Only a window at rest covers others.
         'notify::opacity',
@@ -231,9 +212,6 @@ function track(actor) {
         () => queueCoverage(),
         'notify::scale-y',
         () => queueCoverage(),
-        // Animations scale windows around their pivot point.
-        'notify::pivot-point',
-        () => queueUpdate(state, GEOMETRY),
         'notify::translation-x',
         () => queueCoverage(),
         'notify::translation-y',
@@ -338,17 +316,6 @@ function untrack(state) {
 function withState(actor, handler) {
     const state = states.get(actor);
     if (state) handler(state);
-}
-
-/**
- * Run a handler for a window, if it is tracked.
- *
- * @param {Meta.Window | null} win - The window from the signal.
- * @param {(state: import('./window_state.js').WindowState) => void} handler
- */
-function withWindow(win, handler) {
-    const actor = win?.get_compositor_private();
-    if (actor) withState(actor, handler);
 }
 
 /**

@@ -1,46 +1,40 @@
 /**
- * @file Applies the pending changes of a window: adds or removes the effect,
- * updates its uniforms and the shadow. Everything here runs from the update
- * queue in window_state.js, never directly from a signal handler, so effects
- * are never changed in the middle of a paint.
+ * @file Applies the pending changes of a window: adds or removes the effect
+ * and updates its uniforms, the shadow included. Everything here runs from
+ * the update queue in window_state.js, never directly from a signal
+ * handler, so effects are never changed in the middle of a paint.
  */
 
-import Clutter from 'gi://Clutter';
 import GLib from 'gi://GLib';
-import GObject from 'gi://GObject';
 
-import {RoundedCornersEffect} from '../effect/rounded_corners_effect.js';
-import {ShadowActor} from '../effect/shadow_actor.js';
+import {
+    RoundedCornersEffect,
+    ShadowRoomEffect,
+} from '../effect/rounded_corners_effect.js';
 import {RADIUS} from '../utils/config.js';
 import {
     MAGIC_LAMP_MINIMIZE_EFFECT,
     MAGIC_LAMP_UNMINIMIZE_EFFECT,
     ROUNDED_CORNERS_EFFECT,
-    WOBBLY_EFFECT,
+    SHADOW_ROOM_EFFECT,
 } from '../utils/constants.js';
 import {logDebug} from '../utils/log.js';
 import {
     computeBounds,
-    computeShadowActorOffset,
-    computeWindowContentsOffset,
     detectApp,
     getBorder,
-    getShadowCfg,
     isMaximized,
     OTHER_APP,
     releaseApp,
     shouldEnableEffect,
     unwrapActor,
-    updateShadowActorStyle,
 } from './utils.js';
 import {
-    DEFORM,
     FOCUS,
     GEOMETRY,
     MINIMIZE,
     STATE,
     queueUpdate,
-    states,
     whenAlive,
 } from './window_state.js';
 
@@ -62,7 +56,6 @@ export function flush(state, bits) {
     // effect: a new buffer can make a window opaque, which matters for
     // pausing the windows below it.
     syncTexture(state);
-    if (bits & DEFORM) syncWobbly(state);
 
     // The surface actor of XWayland clients can arrive after the window.
     // Its signal queues another update.
@@ -97,10 +90,9 @@ export function flush(state, bits) {
 
     if (bits & MINIMIZE) syncMinimized(state);
 
-    // The focus decides the border, so this runs on focus changes too.
+    // The focus decides border and shadow, so this runs on focus changes
+    // too.
     if (state.effect) updateEffect(state);
-
-    if (state.shadow) refreshShadow(state);
 }
 
 /**
@@ -114,7 +106,6 @@ export function teardown(state) {
     state.pid = 0;
     for (const emitter of state.emitters) emitter.disconnectObject(state);
     state.emitters.clear();
-    state.wobbly = null;
     state.lampTimer = null;
     state.texture = null;
 }
@@ -122,7 +113,7 @@ export function teardown(state) {
 /**
  * Apply a change of {@link WindowState.suspended}: a window hidden behind an
  * opaque fullscreen window pauses its effect, so Mutter culls it again and
- * skips its offscreen copy, and hides its shadow.
+ * skips its offscreen copy and shadow.
  *
  * Runs before the frame is painted, so a window that becomes visible again
  * has its corners in the same frame.
@@ -132,24 +123,26 @@ export function teardown(state) {
 export function applySuspended(state) {
     logDebug(() => `${state.suspended ? 'Pausing' : 'Resuming'} ${state.win.wmClass}`);
     syncEffectEnabled(state);
-    syncShadowVisible(state);
 }
 
 /**
- * Turn the corners off while the window is paused or in a magic lamp
- * animation. A disabled effect costs nothing, and Mutter culls the window
- * again (see meta-cullable.c).
+ * Turn corners and shadow off while the window is paused or in a magic
+ * lamp animation. A disabled effect costs nothing, and Mutter culls the
+ * window again (see meta-cullable.c), which needs both effects disabled.
  *
  * @param {WindowState} state - The window.
  */
 function syncEffectEnabled(state) {
-    const {effect} = state;
+    const {effect, room} = state;
     if (!effect) return;
 
+    const borderOnly = isBorderOnly(state);
     const enabled =
         !state.suspended &&
         !state.lampHidden &&
-        (!isBorderOnly(state) || state.win.appears_focused);
+        (!borderOnly || state.win.appears_focused);
+    // Only windows with a shadow need room for it.
+    room.enabled = enabled && !borderOnly;
     if (effect.enabled === enabled) return;
     effect.enabled = enabled;
     // Without the effect, Mutter paints a window scaled below half size
@@ -187,24 +180,6 @@ function isLibadwaita(state) {
 function setLampHidden(state, hidden) {
     state.lampHidden = hidden;
     syncEffectEnabled(state);
-    syncShadowVisible(state);
-}
-
-/**
- * Show the shadow only while the window is shown, neither paused nor in a
- * magic lamp animation, and not maximized or fullscreen (unless the
- * settings keep the shadow then). A hidden actor is not painted at all.
- *
- * @param {WindowState} state - The window.
- */
-export function syncShadowVisible(state) {
-    if (!state.shadow) return;
-    state.shadow.visible =
-        state.actor.visible &&
-        !state.suspended &&
-        !state.lampHidden &&
-        !state.wobbly &&
-        !state.shadowHidden;
 }
 
 /**
@@ -294,58 +269,6 @@ function refreshChromiumLater(state) {
 }
 
 /**
- * Hide the shadow while the "Compiz windows effect" extension wobbles the
- * window. The shadow is a separate actor and cannot wobble along.
- *
- * The extension adds its effect on its own signals, which may run after
- * ours, so this runs from the update queue. Removing the effect clears
- * its `actor` property, which shows the shadow again without polling.
- *
- * @param {WindowState} state - The window.
- */
-function syncWobbly(state) {
-    const effect = state.actor.get_effect(WOBBLY_EFFECT);
-    if (effect === state.wobbly) return;
-
-    if (state.wobbly) {
-        state.wobbly.disconnectObject(state);
-        state.emitters.delete(state.wobbly);
-    }
-    state.wobbly = effect;
-    if (effect) {
-        effect.connectObject(
-            'notify::actor',
-            () => {
-                if (effect.actor === state.actor) return;
-                effect.disconnectObject(state);
-                state.emitters.delete(effect);
-                if (state.wobbly === effect) state.wobbly = null;
-                syncShadowVisible(state);
-            },
-            state,
-        );
-        state.emitters.add(effect);
-    }
-    syncShadowVisible(state);
-}
-
-/**
- * Keep every shadow actor directly below its window actor.
- *
- * Mutter restacks by lowering each window actor to the bottom in turn
- * (sync_actor_stacking in compositor.c), which leaves all shadows above all
- * windows. Hidden windows need their shadow put back too: Alt+Esc hides the
- * selected window while it shows a clone, and nothing restacks when the
- * window is shown again.
- */
-export function onRestacked() {
-    for (const {actor, shadow} of states.values()) {
-        if (!shadow || shadow.get_parent() !== actor.get_parent()) continue;
-        global.windowGroup.set_child_below_sibling(shadow, actor);
-    }
-}
-
-/**
  * Follow the window's current texture. Its `size-changed` signal is needed
  * besides `notify::size` on the actor; without it, windows can stay
  * invisible with Dash to Dock until they are pinned.
@@ -406,16 +329,20 @@ function startAppDetection(state, then) {
 }
 
 /**
- * Add the effect and the shadow to a window.
+ * Add the effect to a window, and the room for its shadow before it.
  *
  * @param {WindowState} state - The window.
- * @param {Clutter.Actor} target - The actor to add the effect to.
+ * @param {import('gi://Clutter').default.Actor} target - The actor to add
+ *   the effect to.
  */
 function createEffect(state, target) {
     logDebug(() => `Adding effect to ${state.win.wmClass}`);
 
+    const room = new ShadowRoomEffect();
+    target.add_effect_with_name(SHADOW_ROOM_EFFECT, room);
     const effect = new RoundedCornersEffect();
     target.add_effect_with_name(ROUNDED_CORNERS_EFFECT, effect);
+    state.room = room;
     state.effect = effect;
     state.effectActor = target;
 
@@ -424,53 +351,23 @@ function createEffect(state, target) {
     // offscreen texture, which makes overview previews blurry (upstream
     // issue #36, pull request #170).
     state.texture?.set_create_mipmaps(false);
-
-    // libadwaita apps draw their own shadow.
-    if (isLibadwaita(state)) return;
-
-    const shadow = createShadow(state.actor);
-    state.shadow = shadow;
-
-    // Bind properties of the window to the shadow actor. Visibility is set
-    // by syncShadowVisible, since it also depends on the window state, and
-    // the pivot point by updateEffect, since the shadow is larger.
-    for (const prop of [
-        'translation-x',
-        'translation-y',
-        'scale-x',
-        'scale-y',
-        'opacity',
-    ]) {
-        state.bindings.push(
-            state.actor.bind_property(
-                prop,
-                shadow,
-                prop,
-                GObject.BindingFlags.SYNC_CREATE,
-            ),
-        );
-    }
-    syncShadowVisible(state);
 }
 
 /**
- * Remove the effect and the shadow from a window.
+ * Remove the effect and the room for its shadow from a window.
  *
  * @param {WindowState} state - The window.
  */
 function removeEffect(state) {
     logDebug(() => `Removing effect from ${state.win.wmClass}`);
 
-    state.effectActor?.remove_effect_by_name(ROUNDED_CORNERS_EFFECT);
+    state.effectActor?.remove_effect(state.effect);
+    state.effectActor?.remove_effect(state.room);
     state.effect = null;
+    state.room = null;
     state.effectActor = null;
     state.texture?.set_create_mipmaps(true);
 
-    for (const binding of state.bindings) binding.unbind();
-    state.bindings = [];
-
-    state.shadow?.destroy();
-    state.shadow = null;
     // Only a window with the effect hides it for a magic lamp animation.
     // A new effect must not start disabled.
     state.lampHidden = false;
@@ -482,56 +379,13 @@ function removeEffect(state) {
 }
 
 /**
- * Create the shadow actor for a window.
- *
- * @param {import('gi://Meta').default.WindowActor} actor - The window actor to create the shadow actor for.
- * @returns {ShadowActor}
- */
-function createShadow(actor) {
-    // The shadow has a transparent middle, so nothing shows through behind
-    // the window (https://gitlab.gnome.org/GNOME/gnome-shell/-/issues/4474).
-    const shadow = new ShadowActor({name: 'Shadow Actor'});
-
-    // Draw the shadow actor below the window actor.
-    global.windowGroup.insert_child_below(shadow, actor);
-
-    // Bind position and size between window and shadow. The index is the
-    // Clutter.BindCoordinate (X, Y, WIDTH, HEIGHT), in the order of the
-    // offsets from computeShadowActorOffset.
-    for (let i = 0; i < 4; i++) {
-        const constraint = new Clutter.BindConstraint({
-            source: actor,
-            coordinate: i,
-            offset: 0,
-        });
-        shadow.add_constraint(constraint);
-    }
-
-    return shadow;
-}
-
-/**
- * Update the shadow style for the window's focus.
- *
- * @param {WindowState} state - The window.
- */
-function refreshShadow(state) {
-    const {win, shadow} = state;
-    const hidden = updateShadowActorStyle(win, shadow, getShadowCfg(win));
-    if (hidden !== state.shadowHidden) {
-        state.shadowHidden = hidden;
-        syncShadowVisible(state);
-    }
-}
-
-/**
- * Update effect uniforms and shadow constraints for a window. Uniforms and
- * constraints that stay the same cost nothing.
+ * Update the effect uniforms of a window. Uniforms that stay the same cost
+ * nothing.
  *
  * @param {WindowState} state - The window.
  */
 function updateEffect(state) {
-    const {win, effect, shadow} = state;
+    const {win, effect} = state;
 
     // A paused window keeps its uniforms up to date, so it looks right as
     // soon as it is visible again.
@@ -546,23 +400,6 @@ function updateEffect(state) {
         !isLibadwaita(state),
         isMaximized(win) ? 0 : RADIUS,
     );
-
-    if (!shadow) return;
-    const offsets = computeShadowActorOffset(computeWindowContentsOffset(win));
-    shadow.get_constraints().forEach((constraint, i) => {
-        if (constraint instanceof Clutter.BindConstraint) {
-            constraint.offset = offsets[i];
-        }
-    });
-
-    // Scale the shadow around the same point as the window, for example at
-    // the bottom edge when a window opens. The pivot point is relative to
-    // the size, and the shadow is larger.
-    const {actor} = state;
-    const [x, y, width, height] = offsets;
-    const [pivotX, pivotY] = actor.get_pivot_point();
-    shadow.set_pivot_point(
-        (pivotX * actor.width - x) / (actor.width + width),
-        (pivotY * actor.height - y) / (actor.height + height),
-    );
+    // libadwaita apps draw their own shadow, maximized windows have none.
+    effect.setShadow(!isBorderOnly(state), win.appears_focused);
 }

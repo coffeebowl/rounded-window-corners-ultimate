@@ -47,7 +47,8 @@ The extension is not on extensions.gnome.org.
   whole monitor.
 - Windows hidden behind an opaque fullscreen window are paused, so GNOME
   can skip drawing them.
-- Shadows are pre-rendered images instead of an extra copy of every window.
+- The shadow is drawn in the same pass as the corners, without an extra
+  actor or copy per window.
 - Sharp overview previews without a second rendering pass.
 
 **Looks**
@@ -66,7 +67,8 @@ The extension is not on extensions.gnome.org.
 **Compatibility**
 
 - Works together with Blur my Shell's application blur.
-- The shadow hides while the Compiz windows effect wobbles a window.
+- The shadow is part of the window, so it follows animations, the
+  overview, workspace switches and the Compiz windows effect by itself.
 
 **Development**
 

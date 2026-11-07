@@ -77,7 +77,7 @@ export async function run() {
     settings.set_boolean('focus-border', true);
     await Scripting.sleep(600);
     check(state().effect?.enabled, 'The focused libadwaita app has the effect');
-    check(!state().shadow, 'libadwaita apps keep their own shadow');
+    check(!state().room.enabled, 'libadwaita apps keep their own shadow');
 
     const frame = adw.get_frame_rect();
     const midY = frame.y + Math.floor(frame.height / 2);

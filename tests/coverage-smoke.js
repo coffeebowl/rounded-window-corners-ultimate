@@ -97,7 +97,7 @@ export async function run() {
 
     const allPaused = () => windows.every(s => s.suspended);
     const allActive = () =>
-        windows.every(s => !s.suspended && s.effect.enabled && s.shadow.visible);
+        windows.every(s => !s.suspended && s.effect.enabled && s.room.enabled);
 
     // An opaque fullscreen window pauses the windows below it.
     bringToFront(gears.win);
@@ -105,8 +105,8 @@ export async function run() {
     await Scripting.sleep(1000);
     check(allPaused(), 'windows below fullscreen glxgears are paused');
     check(
-        windows.every(s => !s.effect.enabled && !s.shadow.visible),
-        'paused windows have no active effect and no shadow',
+        windows.every(s => !s.effect.enabled && !s.room.enabled),
+        'paused windows have no active effects',
     );
     await screenshot('1-fullscreen');
 

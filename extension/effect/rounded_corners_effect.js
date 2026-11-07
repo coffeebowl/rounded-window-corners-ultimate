@@ -1,10 +1,19 @@
-/** @file Binds the actual corner rounding shader to the windows. */
+/**
+ * @file Binds the actual corner rounding shader to the windows, and makes
+ * room around them for the shadow it draws.
+ */
 
 import Clutter from 'gi://Clutter';
 import Cogl from 'gi://Cogl';
 import GObject from 'gi://GObject';
 
+import {
+    FOCUSED_SHADOW,
+    SHADOW_TRANSITION_MS,
+    UNFOCUSED_SHADOW,
+} from '../utils/config.js';
 import {readShader} from '../utils/file.js';
+import {mixShadows, shadowRoom} from '../utils/shadow.js';
 import {updateTextureFilters} from './texture_filters.js';
 
 const [declarations, code] = await readShader(
@@ -27,8 +36,56 @@ function enlargeForEffects(start, end) {
     return [Math.ceil(end + 0.75) - length, length];
 }
 
+/** Room for the shadow on every side of the window, in pixels. */
+const SHADOW_ROOM = shadowRoom(FOCUSED_SHADOW, UNFOCUSED_SHADOW);
+
+/**
+ * Makes room for the shadow: grows the paint volume of the window contents
+ * on every side. The offscreen texture of the rounded corners effect
+ * follows the paint volume of the effects before it, so this effect has to
+ * be added first. Disabled, it makes no room.
+ */
+export const ShadowRoomEffect = GObject.registerClass(
+    {GTypeName: 'RwcUltimateShadowRoomEffect'},
+    class ShadowRoomEffect extends Clutter.Effect {
+        /**
+         * @param {Clutter.PaintVolume} volume
+         * @returns {boolean}
+         */
+        vfunc_modify_paint_volume(volume) {
+            // Clutter asks disabled effects too.
+            if (!this.enabled) return true;
+
+            const origin = volume.get_origin();
+            volume.union_box(
+                new Clutter.ActorBox({
+                    x1: origin.x - SHADOW_ROOM,
+                    y1: origin.y - SHADOW_ROOM,
+                    x2: origin.x + volume.get_width() + SHADOW_ROOM,
+                    y2: origin.y + volume.get_height() + SHADOW_ROOM,
+                }),
+            );
+            return true;
+        }
+    },
+);
+
 export const RoundedCornersEffect = GObject.registerClass(
-    {GTypeName: 'RwcUltimateRoundedCornersEffect'},
+    {
+        GTypeName: 'RwcUltimateRoundedCornersEffect',
+        Properties: {
+            // Between the unfocused shadow at 0 and the focused one at 1.
+            'shadow-focus': GObject.ParamSpec.double(
+                'shadow-focus',
+                null,
+                null,
+                GObject.ParamFlags.READWRITE,
+                0,
+                1,
+                1,
+            ),
+        },
+    },
     class Effect extends Clutter.ShaderEffect {
         /**
          * Last values sent to the shader, by uniform name. Clutter resolves
@@ -37,6 +94,19 @@ export const RoundedCornersEffect = GObject.registerClass(
          * @type {Map<string, number[]>}
          */
         #lastUniforms = new Map();
+
+        /** Whether the shadow is drawn. */
+        #shadow = false;
+
+        #shadowFocus = 1;
+
+        /**
+         * Whether the shadow shows or heads for the focused look, null
+         * before the first look.
+         *
+         * @type {boolean | null}
+         */
+        #focused = null;
 
         /**
          * The snippet is created once per class and shared by all instances,
@@ -108,6 +178,55 @@ export const RoundedCornersEffect = GObject.registerClass(
         vfunc_paint_target(node, paintContext) {
             updateTextureFilters(this, paintContext);
             super.vfunc_paint_target(node, paintContext);
+        }
+
+        get shadowFocus() {
+            return this.#shadowFocus;
+        }
+
+        set shadowFocus(value) {
+            if (value === this.#shadowFocus) return;
+            this.#shadowFocus = value;
+            this.notify('shadow-focus');
+            this.#updateShadowUniforms();
+        }
+
+        /**
+         * Show or hide the shadow, and follow the window's focus. Losing
+         * the focus blends to the unfocused shadow, as libadwaita does.
+         *
+         * @param {boolean} shown - Whether to draw the shadow.
+         * @param {boolean} focused - Whether the window has the focus.
+         */
+        setShadow(shown, focused) {
+            this.#shadow = shown;
+            if (focused !== this.#focused) {
+                // The first look and gaining the focus apply at once.
+                const blend = !focused && this.#focused !== null;
+                this.#focused = focused;
+                this.actor.ease_property(
+                    `@effects.${this.name}.shadow-focus`,
+                    focused ? 1 : 0,
+                    {
+                        duration: blend ? SHADOW_TRANSITION_MS : 0,
+                        mode: Clutter.AnimationMode.EASE_OUT,
+                    },
+                );
+            }
+            this.#updateShadowUniforms();
+        }
+
+        /** Send the shadow layers for the current focus to the shader. */
+        #updateShadowUniforms() {
+            const layers = mixShadows(
+                UNFOCUSED_SHADOW,
+                FOCUSED_SHADOW,
+                this.#shadowFocus,
+            );
+            layers.forEach(({blur, spread, alpha}, i) => {
+                const shown = this.#shadow ? alpha : 0;
+                this.#setUniform(`shadow${i}`, [blur, spread, shown]);
+            });
         }
 
         /**

@@ -1,8 +1,16 @@
-// Tests for the shadow image in extension/utils/shadow_texture.js.
+// Tests for the shadow layers in extension/utils/shadow.js and for the
+// reference renderer in shadow_reference.js, which the smoke tests compare
+// the shader with.
 
-import {FOCUSED_SHADOW, RADIUS} from '../extension/utils/config.js';
-import {renderShadow, shadowLayout} from '../extension/utils/shadow_texture.js';
+import {
+    FOCUSED_SHADOW,
+    RADIUS,
+    UNFOCUSED_SHADOW,
+} from '../extension/utils/config.js';
+import {readShader} from '../extension/utils/file.js';
+import {mixShadows, shadowRoom} from '../extension/utils/shadow.js';
 import {equal, ok, run, test} from './harness.js';
+import {renderShadow, shadowLayout} from './shadow_reference.js';
 
 /** libadwaita's focused window shadow. */
 const FOCUSED = {radius: RADIUS, layers: FOCUSED_SHADOW};
@@ -31,12 +39,6 @@ test('the shadow reaches one pixel under the window edge', () => {
     const mid = Math.floor(image.size / 2);
     ok(alphaAt(image, image.margin, mid) > 0, 'edge pixel');
     equal(alphaAt(image, image.margin + 2, mid), 0, 'further in');
-});
-
-test('slices leave a one pixel middle to stretch', () => {
-    const image = renderShadow(FOCUSED);
-    equal(image.size, image.slice * 2 + 1);
-    equal(image.size, image.slice * 2 + 1);
 });
 
 test('the shadow is darkest next to the box and fades outwards', () => {
@@ -122,12 +124,31 @@ test('at scale 2 the image has twice the pixels', () => {
     equal(alphaAt(image, image.margin - 3, mid), 0, 'nothing beyond');
 });
 
-test('rendering is fast enough to run when a window first shows', () => {
-    const start = Date.now();
-    renderShadow(FOCUSED, 2);
-    const ms = Date.now() - start;
-    print(`      rendering took ${ms} ms`);
-    ok(ms < 1000, `${ms} ms`);
+test('the room fits the shadow and its antialiased edge', () => {
+    // As far as the image reaches: 5 px spread and three sigmas of 7 px,
+    // plus one pixel.
+    equal(shadowRoom(FOCUSED_SHADOW, UNFOCUSED_SHADOW), shadowLayout(FOCUSED).margin);
+    equal(shadowRoom([{blur: 10, spread: 5, alpha: 0.08}]), 5 + 15 + 1);
+    equal(shadowRoom([]), 1);
 });
 
-await run('shadow_texture.test.js');
+test('mixing goes layer by layer from one look to the other', () => {
+    equal(mixShadows(UNFOCUSED_SHADOW, FOCUSED_SHADOW, 0), [...UNFOCUSED_SHADOW]);
+    equal(mixShadows(UNFOCUSED_SHADOW, FOCUSED_SHADOW, 1), [...FOCUSED_SHADOW]);
+    const [first, second, ring] = mixShadows(UNFOCUSED_SHADOW, FOCUSED_SHADOW, 0.5);
+    equal(first, {blur: 14, spread: 5, alpha: 0.075});
+    equal(second, {blur: 7.5, spread: 3.5, alpha: 0.09});
+    equal(ring, {...FOCUSED_SHADOW[2]});
+});
+
+test('both looks fit the layers of the shader', async () => {
+    const [declarations] = await readShader(
+        import.meta.url,
+        '../extension/effect/shader/rounded_corners.frag',
+    );
+    const layers = declarations.match(/^uniform vec3 shadow\d;$/gm).length;
+    equal(FOCUSED_SHADOW.length, layers);
+    equal(UNFOCUSED_SHADOW.length, layers);
+});
+
+await run('shadow.test.js');

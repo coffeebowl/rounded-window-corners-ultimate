@@ -20,7 +20,7 @@ are hidden behind an opaque fullscreen window.
 ## `event_handlers.js`
 
 Applies the pending changes of a window: adds or removes the effect and the
-shadow, and updates both.
+room for its shadow, and updates them.
 
 ## `coverage.js`
 

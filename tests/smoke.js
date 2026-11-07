@@ -6,7 +6,6 @@
 import Clutter from 'gi://Clutter';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
-import Graphene from 'gi://Graphene';
 import Meta from 'gi://Meta';
 import Shell from 'gi://Shell';
 import St from 'gi://St';
@@ -23,6 +22,13 @@ let states;
 /** @returns {Meta.WindowActor[]} Window actors that have the effect. */
 function roundedActors() {
     return global.get_window_actors().filter(a => states.get(a)?.effect);
+}
+
+/** @returns {number} Actors in the window group that are not windows. */
+function otherActors() {
+    return global.window_group
+        .get_children()
+        .filter(child => !(child instanceof Meta.WindowActor)).length;
 }
 
 /**
@@ -42,6 +48,7 @@ export async function run() {
     let extension;
     ({extension, states} = await loadExtension());
 
+    const othersBefore = otherActors();
     extension.enable();
 
     await Scripting.createTestWindow({width: 640, height: 480});
@@ -53,12 +60,13 @@ export async function run() {
     let actors = roundedActors().sort((a, b) => b.width - a.width);
     check(actors.length >= 2, 'Expected rounded effects on two test windows');
 
-    // Shadows are pre-rendered images, no offscreen effect per shadow.
+    // The shadow is drawn by the effect, in room made before it.
     for (const actor of actors) {
-        const {shadow} = states.get(actor);
+        const {effectActor, effect, room} = states.get(actor);
+        const [first, second] = effectActor.get_effects();
         check(
-            shadow.get_effects().length === 0,
-            'Shadow actors must not have effects',
+            first === room && second === effect && room.enabled,
+            'The room for the shadow has to come before the effect',
         );
     }
     if (GLib.getenv('RWC_TEST_BACKEND') === 'x11') {
@@ -93,26 +101,10 @@ export async function run() {
         workspace.index() + 1,
     );
     if (next) {
-        // A minimized window gets an invisible clone during the switch,
-        // its shadow clone has to be invisible too.
+        // Switch with a minimized window, which gets an invisible clone.
         actors[1].metaWindow.minimize();
         await Scripting.sleep(350);
         Main.wm.actionMoveWorkspace(next);
-        const {monitors} = Main.wm._workspaceAnimation._switchData;
-        const shadowClones = monitors
-            .flatMap(m => m._workspaceGroups)
-            .flatMap(g => g.get_children())
-            .filter(c => c instanceof Clutter.Clone);
-        const shadowCloneOf = actor =>
-            shadowClones.find(c => c.source === states.get(actor).shadow);
-        check(
-            shadowCloneOf(actors[0])?.visible,
-            'A shown window needs a visible shadow clone',
-        );
-        check(
-            shadowCloneOf(actors[1])?.visible === false,
-            'A minimized window needs an invisible shadow clone',
-        );
         await Scripting.sleep(650);
         Main.wm.actionMoveWorkspace(workspace);
         await Scripting.sleep(650);
@@ -120,58 +112,21 @@ export async function run() {
         await Scripting.sleep(350);
     }
 
-    // Alt+Esc hides the selected window and shows a clone of it instead
-    // (CyclerHighlight in altTab.js). A restack meanwhile puts every shadow
-    // above all windows; the hidden window's shadow has to go back below it.
-    actors[0].hide();
-    Main.activateWindow(actors[1].metaWindow);
-    await Scripting.sleep(200);
-    Main.activateWindow(actors[0].metaWindow);
-    await Scripting.sleep(200);
-    actors[0].show();
-    await Scripting.sleep(200);
-    const stackShot = GLib.getenv('RWC_TEST_STACK_SCREENSHOT');
-    if (stackShot) await screenshot(stackShot);
-    const stack = global.window_group.get_children();
-    for (const actor of actors) {
-        check(
-            stack.indexOf(states.get(actor).shadow) < stack.indexOf(actor),
-            'A shadow has to stay below its window after a restack',
-        );
-    }
-
     const window = actors[0].metaWindow;
     const state = states.get(actors[0]);
 
-    // Freeze a window in its opening animation (windowManager.js): scaled
-    // around the middle of its bottom edge and half faded in. The shadow
-    // has to scale around the same point and fade along.
-    const frameBottom = actor => {
-        const frame = window.get_frame_rect();
-        return actor.apply_transform_to_point(
-            new Graphene.Point3D({
-                x: frame.x + frame.width / 2 - actor.x,
-                y: frame.y + frame.height - actor.y,
-            }),
-        );
-    };
-    actors[0].set_pivot_point(0.5, 1);
-    actors[0].set_scale(0.5, 0.5);
-    actors[0].opacity = 128;
-    await Scripting.sleep(100);
-    const windowBottom = frameBottom(actors[0]);
-    const shadowBottom = frameBottom(state.shadow);
+    // Losing the focus blends the shadow, gaining it switches at once.
+    Main.activateWindow(actors[1].metaWindow);
+    await Scripting.sleep(50);
     check(
-        Math.hypot(
-            windowBottom.x - shadowBottom.x,
-            windowBottom.y - shadowBottom.y,
-        ) < 0.5 && state.shadow.opacity === 128,
-        'The shadow has to follow the opening animation',
+        state.effect.shadowFocus > 0 && state.effect.shadowFocus < 1,
+        `Losing the focus has to blend the shadow (${state.effect.shadowFocus})`,
     );
-    actors[0].set_pivot_point(0, 0);
-    actors[0].set_scale(1, 1);
-    actors[0].opacity = 255;
-    await Scripting.sleep(100);
+    await Scripting.sleep(300);
+    check(state.effect.shadowFocus === 0, 'The shadow has to end unfocused');
+    Main.activateWindow(window);
+    await Scripting.sleep(50);
+    check(state.effect.shadowFocus === 1, 'Gaining the focus switches at once');
 
     // Count painted frames to check that a window updates at most once per
     // frame, however many signals a resize emits.
@@ -200,33 +155,17 @@ export async function run() {
     await countUpdates('unmaximize', () => window.unmaximize());
     global.stage.disconnect(paintId);
 
-    // Like the "Compiz windows effect" extension, wobble the window when
-    // its size changes. Connected after the extension, so its handler runs
-    // first. The shadow cannot wobble along, so it hides until the effect
-    // is removed.
-    const wobbleId = global.window_manager.connect('size-change', (_, a) => {
-        if (!a.get_effect('wobbly-compiz-effect')) {
-            a.add_effect_with_name(
-                'wobbly-compiz-effect',
-                new Clutter.DesaturateEffect(),
-            );
-        }
-    });
+    // A maximized window has no shadow and needs no room for it.
     window.maximize();
     await Scripting.sleep(350);
+    check(!state.room?.enabled, 'A maximized window needs no room for a shadow');
     window.unmaximize();
     await Scripting.sleep(350);
-    global.window_manager.disconnect(wobbleId);
-    check(
-        state.shadow && !state.shadow.visible,
-        'The shadow has to hide while the window wobbles',
-    );
-    actors[0].remove_effect_by_name('wobbly-compiz-effect');
-    check(state.shadow.visible, 'The shadow has to return after wobbling');
+    check(state.room.enabled, 'The room has to return after unmaximizing');
 
     // Like "Compiz alike magic lamp effect", animate minimizing and
     // unminimizing with an effect added after the extension's handler ran.
-    // Shadow and corners hide until the animation is almost done.
+    // Shadow and corners pause until the animation is almost done.
     const lampIds = ['minimize', 'unminimize'].map(signal =>
         global.window_manager.connect(signal, (_, a) => {
             const lamp = new Clutter.DesaturateEffect();
@@ -236,7 +175,7 @@ export async function run() {
             lamp.timerId.start();
         }),
     );
-    const lampPaused = () => !state.shadow.visible && !state.effect.enabled;
+    const lampPaused = () => !state.room.enabled && !state.effect.enabled;
     for (const action of ['minimize', 'unminimize']) {
         window[action]();
         await Scripting.sleep(100);
@@ -257,7 +196,7 @@ export async function run() {
     await Scripting.sleep(600);
     for (const id of lampIds) global.window_manager.disconnect(id);
     check(
-        state.shadow.visible && state.effect.enabled,
+        state.room.enabled && state.effect.enabled,
         'The window has to return after the magic lamp',
     );
 
@@ -295,12 +234,7 @@ export async function run() {
     }
     await Scripting.sleep(600);
     check(states.size === 0, 'Closed windows left window states behind');
-    check(
-        !global.window_group
-            .get_children()
-            .some(child => child.name === 'Shadow Actor'),
-        'Closed windows left shadow actors behind',
-    );
+    check(otherActors() === othersBefore, 'Closed windows left actors behind');
 
     extension.disable();
 
@@ -328,12 +262,7 @@ export async function run() {
     extension.disable();
     check(roundedActors().length === 0, 'Disable leaked window effects');
     check(states.size === 0, 'Disable leaked window states');
-    check(
-        !global.window_group
-            .get_children()
-            .some(child => child.name === 'Shadow Actor'),
-        'Disable leaked shadow actors',
-    );
+    check(otherActors() === othersBefore, 'Disable leaked actors');
     await Scripting.destroyTestWindows();
 
     print('RWC_SMOKE_PASS');

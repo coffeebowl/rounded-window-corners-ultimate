@@ -4,7 +4,6 @@ import {
 } from 'resource:///org/gnome/shell/extensions/extension.js';
 import {layoutManager} from 'resource:///org/gnome/shell/ui/main.js';
 import {SwitcherPopup} from 'resource:///org/gnome/shell/ui/switcherPopup.js';
-import {WindowPreview} from 'resource:///org/gnome/shell/ui/windowPreview.js';
 import {WorkspaceAnimationController} from 'resource:///org/gnome/shell/ui/workspaceAnimation.js';
 
 import {
@@ -12,15 +11,6 @@ import {
     enableEffect,
     setCoverageAllowed,
 } from './manager/event_manager.js';
-import {
-    addShadowInOverview,
-    removeOverviewShadows,
-} from './patch/add_shadow_in_overview.js';
-import {
-    addShadowsInWorkspaceSwitch,
-    removeShadowsAfterWorkspaceSwitch,
-    removeWorkspaceShadows,
-} from './patch/workspace_switch.js';
 import {logDebug} from './utils/log.js';
 import {initSettings, uninitSettings} from './utils/settings.js';
 
@@ -51,32 +41,15 @@ export default class RoundedWindowCornersUltimate extends Extension {
             enableEffect();
         }
 
-        // WindowPreview is a widget that shows a window in the overview.
-        // We need to override its `_addWindow` method to add a shadow actor
-        // to the preview, otherwise overview windows won't have our
-        // shadows.
-        this.#injectionManager.overrideMethod(
-            WindowPreview.prototype,
-            '_addWindow',
-            addWindow =>
-                function (window) {
-                    addWindow.call(this, window);
-                    addShadowInOverview(window, this);
-                },
-        );
-
-        // The same way we applied a cloned shadow actor to window previews in
-        // the overview, we also need to apply it to windows during workspace
-        // switching.
+        // Windows of two workspaces are visible during a workspace switch,
+        // so pausing covered windows is off meanwhile.
         this.#injectionManager.overrideMethod(
             WorkspaceAnimationController.prototype,
             '_prepareWorkspaceSwitch',
             prepareWorkspaceSwitch =>
                 function (workspaceIndices) {
-                    // Windows of two workspaces are visible during the switch.
                     setCoverageAllowed('workspace-switch', false);
                     prepareWorkspaceSwitch.call(this, workspaceIndices);
-                    addShadowsInWorkspaceSwitch(this);
                 },
         );
         this.#injectionManager.overrideMethod(
@@ -84,7 +57,6 @@ export default class RoundedWindowCornersUltimate extends Extension {
             '_finishWorkspaceSwitch',
             finishWorkspaceSwitch =>
                 function (switchData) {
-                    removeShadowsAfterWorkspaceSwitch(this);
                     finishWorkspaceSwitch.call(this, switchData);
                     setCoverageAllowed('workspace-switch', true);
                 },
@@ -119,11 +91,6 @@ export default class RoundedWindowCornersUltimate extends Extension {
         // Restore patched methods
         this.#injectionManager?.clear();
         this.#injectionManager = null;
-
-        // Remove shadows that were added to overview previews and workspace
-        // switch clones, in case the extension is disabled while they exist.
-        removeOverviewShadows();
-        removeWorkspaceShadows();
 
         // In case the shell is still starting up.
         layoutManager.disconnectObject(this);

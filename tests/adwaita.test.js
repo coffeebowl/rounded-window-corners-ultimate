@@ -65,18 +65,17 @@ function border(value) {
 
 /**
  * Parse a `box-shadow` into layers like in config.js. Transparent layers
- * only exist for the transition and are left out.
+ * have alpha 0.
  *
  * @param {string} value
  */
 function shadowLayers(value) {
-    return value
-        .split(/,\s*/)
-        .filter(layer => !layer.endsWith(' transparent'))
-        .map(layer => {
-            const m = layer.match(/^0 0 (\d+)(?:px)? (\d+)px RGB\(0 0 0\/(\d+)%\)$/);
-            return m ? {blur: +m[1], spread: +m[2], alpha: m[3] / 100} : layer;
-        });
+    return value.split(/,\s*/).map(layer => {
+        const m = layer.match(
+            /^0 0 (\d+)(?:px)? (\d+)px (?:RGB\(0 0 0\/(\d+)%\)|transparent)$/,
+        );
+        return m ? {blur: +m[1], spread: +m[2], alpha: (m[3] ?? 0) / 100} : layer;
+    });
 }
 
 if (css) {
@@ -99,6 +98,14 @@ if (css) {
 
     test('the unfocused shadow matches', () => {
         equal(shadowLayers(backdrop.get('box-shadow')), config.UNFOCUSED_SHADOW);
+    });
+
+    test('losing the focus blends the shadow', () => {
+        equal(
+            backdrop.get('transition'),
+            `box-shadow ${config.SHADOW_TRANSITION_MS}ms ease-out`,
+        );
+        equal(csd.get('transition'), undefined);
     });
 } else {
     print('skip  adwaita.test.js: libadwaita is not installed');

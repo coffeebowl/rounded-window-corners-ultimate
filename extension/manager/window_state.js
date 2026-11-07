@@ -12,7 +12,7 @@
  * {@link startUpdates}.
  */
 
-/** The window's size, position or pivot point changed. */
+/** The window's size or position changed. */
 export const GEOMETRY = 1;
 /** The window gained or lost focus, or moved to another workspace. */
 export const FOCUS = 2;
@@ -20,8 +20,6 @@ export const FOCUS = 2;
 export const STATE = 4;
 /** The window was minimized or unminimized. */
 export const MINIMIZE = 8;
-/** Another extension may have added an effect that deforms the window. */
-export const DEFORM = 16;
 
 /**
  * Everything the extension keeps for one window.
@@ -31,11 +29,11 @@ export const DEFORM = 16;
  * @property {import('gi://Meta').default.Window} win - Its window.
  * @property {import('../effect/rounded_corners_effect.js').RoundedCornersEffect['prototype'] | null} effect -
  *   The rounded corners effect, if the window has it.
+ * @property {import('../effect/rounded_corners_effect.js').ShadowRoomEffect['prototype'] | null} room -
+ *   The effect that makes room for the shadow, while the window has the
+ *   rounded corners effect.
  * @property {import('gi://Clutter').default.Actor | null} effectActor -
- *   The actor the effect was added to, see `unwrapActor` in utils.js.
- * @property {import('../effect/shadow_actor.js').ShadowActor | null} shadow - The shadow actor.
- * @property {import('gi://GObject').default.Binding[]} bindings -
- *   Property bindings from the window actor to the shadow.
+ *   The actor the effects were added to, see `unwrapActor` in utils.js.
  * @property {import('gi://GObject').default.Object | null} texture -
  *   The texture whose `size-changed` signal is connected.
  * @property {Set<import('gi://GObject').default.Object>} emitters -
@@ -46,16 +44,11 @@ export const DEFORM = 16;
  * @property {number} pid - Process ID used for the app detection, or 0.
  * @property {number} unminimizeTimeoutId - Pending Chromium refresh.
  * @property {boolean} suspended - Hidden behind an opaque window that
- *   covers the monitor, so the effect and shadow are paused.
- * @property {boolean} lampHidden - The magic lamp animation hides the
- *   shadow and pauses the corners.
+ *   covers the monitor, so the effect is paused.
+ * @property {boolean} lampHidden - The magic lamp animation pauses the
+ *   effect.
  * @property {import('gi://Clutter').default.Timeline | null} lampTimer -
  *   The unminimize animation that shows them again once it is almost done.
- * @property {import('gi://Clutter').default.Effect | null} wobbly - The
- *   wobbly effect of "Compiz windows effect" while it deforms the window;
- *   it hides the shadow, which cannot wobble along.
- * @property {boolean} shadowHidden - The settings hide the shadow, for
- *   maximized and fullscreen windows.
  * @property {number} dirty - Bitmask of pending changes.
  * @property {number} laterId - ID of the queued update, or 0.
  * @property {boolean} destroyed - Set once the window is gone.
@@ -120,9 +113,8 @@ export function createState(actor, win) {
         actor,
         win,
         effect: null,
+        room: null,
         effectActor: null,
-        shadow: null,
-        bindings: [],
         texture: null,
         emitters: new Set(),
         app: null,
@@ -132,8 +124,6 @@ export function createState(actor, win) {
         suspended: false,
         lampHidden: false,
         lampTimer: null,
-        wobbly: null,
-        shadowHidden: false,
         dirty: 0,
         laterId: 0,
         destroyed: false,

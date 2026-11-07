@@ -1,6 +1,7 @@
 /**
- * @file Renders the image for a window shadow, to be 9-sliced around the
- * window by effect/shadow_actor.js.
+ * @file Renders a window shadow the slow and plain way, as reference for
+ * the shader in extension/effect/shader/rounded_corners.frag: covers
+ * pixels with the rounded box and blurs them with a Gaussian kernel.
  *
  * The shadow follows CSS box-shadow as GTK draws it for libadwaita windows
  * (gskgpuboxshadow.glsl in GTK 4.24): every layer is the window's rounded
@@ -9,19 +10,13 @@
  * Like CSS, the shadow is not drawn inside the window box.
  *
  * The image is symmetric, so only its top left quarter is computed and
- * then mirrored.
- *
- * This module has no imports, so it can be unit tested with `gjs -m`.
+ * then mirrored. It has no Shell imports, so tests run it with `gjs -m`,
+ * and smoke tests compare the shader's shadow with it.
  */
 
-/**
- * One layer of a box-shadow, always black and centered on the window.
- *
- * @typedef {object} ShadowLayer
- * @property {number} blur - CSS blur radius.
- * @property {number} spread - CSS spread radius, may be negative.
- * @property {number} alpha - Opacity from 0 to 1.
- */
+import {GAUSS_REACH, layerReach} from '../extension/utils/shadow.js';
+
+/** @typedef {import('../extension/utils/types.js').ShadowLayer} ShadowLayer */
 
 /**
  * @typedef {object} ShadowStyle
@@ -37,18 +32,12 @@
  *   are the same premultiplied or not.
  * @property {number} margin - How far the image reaches beyond the window
  *   box on every side, in pixels.
- * @property {number} slice - Width of each border slice in pixels. The
- *   middle row and column are one pixel and get stretched.
+ * @property {number} slice - Width of each border slice in pixels: the
+ *   image is a corner, a one pixel wide middle and the mirrored corner.
  */
 
 /** Samples per axis for anti-aliased coverage. */
 const SUPERSAMPLING = 4;
-
-/**
- * How far a Gaussian reaches before it can be neglected, in sigmas. At 3,
- * what is left is below half a level of 8 bits for the alphas here.
- */
-const GAUSS_REACH = 3;
 
 /**
  * Coverage of a pixel by a rounded rectangle, from 0 to 1.
@@ -158,16 +147,6 @@ function scaleStyle(style, scale) {
             alpha: l.alpha,
         })),
     };
-}
-
-/**
- * How far a layer reaches beyond the window box.
- *
- * @param {ShadowLayer} layer
- * @returns {number}
- */
-function layerReach(layer) {
-    return Math.max(0, layer.spread + (Math.max(0, layer.blur) / 2) * GAUSS_REACH);
 }
 
 /**
