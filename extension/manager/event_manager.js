@@ -241,8 +241,6 @@ function track(actor) {
         state,
     );
     win.connectObject(
-        'notify::wm-class',
-        () => queueUpdate(state, STATE),
         // A window does not have to change its size to go fullscreen.
         'notify::fullscreen',
         () => {

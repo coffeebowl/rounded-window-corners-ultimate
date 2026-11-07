@@ -49,7 +49,6 @@ The extension is not on extensions.gnome.org.
   can skip drawing them.
 - Shadows are pre-rendered images instead of an extra copy of every window.
 - Sharp overview previews without a second rendering pass.
-- Games never trigger a scan of their process memory map.
 
 **Looks**
 
@@ -57,6 +56,7 @@ The extension is not on extensions.gnome.org.
 - Corners and borders sit exactly on the window edge; before, they could
   be off by up to 2 pixels.
 - The corner radius is limited correctly on small windows.
+- Windows without a window class, such as `glxgears`, are rounded too.
 - Corners, outline and shadow follow libadwaita windows, in light and dark
   style alike. libadwaita apps keep their own, since they draw all this
   themselves.

@@ -25,7 +25,6 @@ import {
     detectApp,
     getBorder,
     getShadowCfg,
-    isGame,
     OTHER_APP,
     releaseApp,
     shouldEnableEffect,
@@ -63,10 +62,10 @@ export function flush(state, bits) {
     syncTexture(state);
     if (bits & DEFORM) syncWobbly(state);
 
-    // The surface actor of XWayland clients and the wm class can arrive
-    // after the window. Their signals queue another update.
+    // The surface actor of XWayland clients can arrive after the window.
+    // Its signal queues another update.
     const target = unwrapActor(actor);
-    if (!target || win.wmClass === null || !state.texture) return;
+    if (!target || !state.texture) return;
 
     if (state.app === null) startAppDetection(state);
 
@@ -366,8 +365,7 @@ function syncTexture(state) {
 
 /**
  * Find out once whether the app uses libadwaita or Chromium, and
- * update the window when the answer arrives. Games are known from their
- * window class right away.
+ * update the window when the answer arrives.
  *
  * @param {WindowState} state - The window.
  * @param {() => void} [then] - Runs after the result arrived, also when the
@@ -376,7 +374,7 @@ function syncTexture(state) {
 function startAppDetection(state, then) {
     if (!state.app && !state.detection) {
         const pid = state.win.get_pid();
-        if (isGame(state.win) || pid <= 0) {
+        if (pid <= 0) {
             state.app = OTHER_APP;
             queueUpdate(state, STATE);
         } else {

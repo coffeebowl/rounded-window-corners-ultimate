@@ -116,6 +116,8 @@ export async function run() {
     );
     check(gears, 'glxgears window appeared');
     if (!gears) throw new Error('no glxgears window');
+    // It has no window class, and is rounded anyway.
+    check(await waitFor(() => gears.effect), 'glxgears has the effect');
 
     const allPaused = () => windows.every(s => s.suspended);
     const allActive = () =>

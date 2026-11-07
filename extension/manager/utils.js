@@ -268,11 +268,6 @@ export function shouldEnableEffect(win, app) {
         return false;
     }
 
-    // Windows without a class are not rounded, as upstream.
-    if (win.wmClass === null) {
-        return false;
-    }
-
     // Only apply the effect to normal windows (skip menus, tooltips, etc.)
     if (
         win.windowType !== Meta.WindowType.NORMAL &&
@@ -295,24 +290,6 @@ export function shouldEnableEffect(win, app) {
         win.maximizedVertically ||
         coversMonitor(win)
     );
-}
-
-/**
- * Window classes of games: Steam/Proton, Wine (Lutris, Heroic, ...) and
- * gamescope. Games are never libadwaita or Chromium apps, so their
- * /proc/<pid>/maps, which can be megabytes for Wine, is not read at all.
- */
-const GAME_CLASSES = [/^steam_app_\d+$/, /\.exe$/i, /^gamescope$/i];
-
-/**
- * Check whether a window belongs to a game, judging by its window class.
- *
- * @param {import('gi://Meta').default.Window} win - The window to check.
- * @returns {boolean}
- */
-export function isGame(win) {
-    const wmClass = win.wmClass ?? '';
-    return GAME_CLASSES.some(pattern => pattern.test(wmClass));
 }
 
 /** Markers in /proc/<pid>/maps and what they mean. */
