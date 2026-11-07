@@ -9,11 +9,13 @@
 
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
+import Shell from 'gi://Shell';
 
 import * as AltTab from 'resource:///org/gnome/shell/ui/altTab.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
-import Shell from 'gi://Shell';
+
+import {loadExtension} from './session.js';
 
 let failures = 0;
 
@@ -83,17 +85,7 @@ export async function run() {
         return;
     }
 
-    const root = GLib.getenv('RWC_TEST_EXTENSION');
-    const file = Gio.File.new_for_path(`${root}/metadata.json`);
-    const [, bytes] = file.load_contents(null);
-    const metadata = JSON.parse(new TextDecoder().decode(bytes));
-    const {default: Extension} = await import(`file://${root}/extension.js`);
-    const {states} = await import(`file://${root}/manager/window_state.js`);
-    const extension = new Extension({
-        ...metadata,
-        path: root,
-        dir: Gio.File.new_for_path(root),
-    });
+    const {extension, states} = await loadExtension();
     extension.enable();
     Main.overview.hide();
     await Scripting.sleep(600);

@@ -15,6 +15,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
 
 import {ok as check} from './harness.js';
+import {loadExtension} from './session.js';
 
 /** Window states of the loaded extension, set in run(). */
 let states;
@@ -38,17 +39,8 @@ async function screenshot(path) {
 }
 
 export async function run() {
-    const root = GLib.getenv('RWC_TEST_EXTENSION');
-    const file = Gio.File.new_for_path(`${root}/metadata.json`);
-    const [, bytes] = file.load_contents(null);
-    const metadata = JSON.parse(new TextDecoder().decode(bytes));
-    const {default: Extension} = await import(`file://${root}/extension.js`);
-    ({states} = await import(`file://${root}/manager/window_state.js`));
-    const extension = new Extension({
-        ...metadata,
-        path: root,
-        dir: Gio.File.new_for_path(root),
-    });
+    let extension;
+    ({extension, states} = await loadExtension());
 
     extension.enable();
 

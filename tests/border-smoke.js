@@ -9,25 +9,14 @@
 
 import GdkPixbuf from 'gi://GdkPixbuf';
 import Gio from 'gi://Gio';
-import GLib from 'gi://GLib';
 import Meta from 'gi://Meta';
-import Shell from 'gi://Shell';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
 
 import {setScale} from './display.js';
 import {ok as check} from './harness.js';
-
-/** @returns {Promise<GdkPixbuf.Pixbuf>} The whole stage. */
-async function screenshot() {
-    const stream = Gio.MemoryOutputStream.new_resizable();
-    const {width, height} = global.stage;
-    await new Shell.Screenshot().screenshot_area(0, 0, width, height, stream);
-    stream.close(null);
-    const input = Gio.MemoryInputStream.new_from_bytes(stream.steal_as_bytes());
-    return GdkPixbuf.Pixbuf.new_from_stream(input, null);
-}
+import {loadExtension, plainBackground, screenshot} from './session.js';
 
 /** The red accent color, #e62d42 in st-theme-context.c. */
 const RED = [230, 45, 66];
@@ -105,23 +94,9 @@ function checkBorderOnEdges(image, {x, y, width, height}, what) {
 }
 
 export async function run() {
-    const background = new Gio.Settings({
-        schema_id: 'org.gnome.desktop.background',
-    });
-    background.set_string('picture-options', 'none');
-    background.set_string('color-shading-type', 'solid');
-    background.set_string('primary-color', '#000000');
+    plainBackground('#000000');
 
-    const root = GLib.getenv('RWC_TEST_EXTENSION');
-    const file = Gio.File.new_for_path(`${root}/metadata.json`);
-    const [, bytes] = file.load_contents(null);
-    const metadata = JSON.parse(new TextDecoder().decode(bytes));
-    const {default: Extension} = await import(`file://${root}/extension.js`);
-    const extension = new Extension({
-        ...metadata,
-        path: root,
-        dir: Gio.File.new_for_path(root),
-    });
+    const {extension} = await loadExtension();
     const desktop = new Gio.Settings({
         schema_id: 'org.gnome.desktop.interface',
     });
