@@ -50,6 +50,7 @@ jobs:
           /usr/bin/gnome-extensions /usr/bin/glib-compile-resources
           gnome-shell mesa-dri-drivers xorg-x11-server-Xwayland
           glx-utils glycin-loaders dbus-daemon gnome-calculator
+          python3 SDL3 libdecor
 
       # The shell talks to the system bus and, if /run/systemd/seats
       # exists, to logind. Without systemd running it must not exist.

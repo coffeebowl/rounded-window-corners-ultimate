@@ -98,21 +98,23 @@ export function getBorder(win) {
 }
 
 /**
- * Compute outer bounds for rounded corners of a window, in the coordinates
- * of the actor that has the effect.
+ * Compute outer bounds for rounded corners of a window: its frame, in the
+ * coordinates of the actor that has the effect, which start at the buffer.
  *
- * @param {import('gi://Clutter').default.Actor} target - The actor with the
- *   effect, see {@link unwrapActor}. Its size is the buffer size.
- * @param {number[]} offsets - The content offsets `[x, y, width, height]` of the window.
+ * The actor can be larger than the buffer. libdecor (SDL, Blender), winit
+ * (Alacritty) and kitty draw their decorations in subsurfaces that reach
+ * past the buffer, and the actor grows to the right and bottom by that
+ * much.
+ *
+ * @param {import('gi://Meta').default.Window} win - The window.
  * @returns {import('../utils/types.js').Bounds}
  */
-export function computeBounds(target, [x, y, width, height]) {
-    return {
-        x1: x,
-        y1: y,
-        x2: x + target.width + width,
-        y2: y + target.height + height,
-    };
+export function computeBounds(win) {
+    const buffer = win.get_buffer_rect();
+    const frame = win.get_frame_rect();
+    const x1 = frame.x - buffer.x;
+    const y1 = frame.y - buffer.y;
+    return {x1, y1, x2: x1 + frame.width, y2: y1 + frame.height};
 }
 
 /**

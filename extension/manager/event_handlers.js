@@ -531,7 +531,7 @@ function refreshShadow(state) {
  * @param {WindowState} state - The window.
  */
 function updateEffect(state) {
-    const {win, effect, effectActor, shadow} = state;
+    const {win, effect, shadow} = state;
 
     // A paused window keeps its uniforms up to date, so it looks right as
     // soon as it is visible again.
@@ -540,16 +540,15 @@ function updateEffect(state) {
     // libadwaita's own shadow lies outside the window and has to stay.
     // Everything else is cut off, also around maximized windows, whose old
     // buffer can still have room for a shadow right after maximizing.
-    const windowContentOffset = computeWindowContentsOffset(win);
     effect.updateUniforms(
-        computeBounds(effectActor, windowContentOffset),
+        computeBounds(win),
         getBorder(win),
         !isLibadwaita(state),
         isMaximized(win) ? 0 : RADIUS,
     );
 
     if (!shadow) return;
-    const offsets = computeShadowActorOffset(windowContentOffset);
+    const offsets = computeShadowActorOffset(computeWindowContentsOffset(win));
     shadow.get_constraints().forEach((constraint, i) => {
         if (constraint instanceof Clutter.BindConstraint) {
             constraint.offset = offsets[i];
