@@ -29,7 +29,39 @@ case "$(gnome-shell --version)" in
 esac
 
 scratch=$(mktemp -d)
-trap 'rm -rf -- "$scratch"' EXIT
+log="$scratch/session.log"
+
+# Keep the log for inspection if RWC_SMOKE_LOG names a file. The document
+# portal mounts a FUSE file system in the runtime directory and may still
+# be unmounting it when the session ends, so detach it first. Cleaning up
+# never changes the result.
+cleanup() {
+    local status=$?
+    if [[ -n "${RWC_SMOKE_LOG:-}" && -f "$log" ]]; then
+        cp -- "$log" "$RWC_SMOKE_LOG"
+    fi
+    fusermount3 -uz "$scratch/runtime/doc" 2>/dev/null || true
+    rm -rf -- "$scratch" || echo "Could not remove $scratch" >&2
+    exit "$status"
+}
+trap cleanup EXIT
+
+errors='GNOME Shell-CRITICAL|JS ERROR|JS WARNING|Failed to create offscreen|already disposed|\(gnome-shell:[0-9]+\).*CRITICAL|\[RWC Ultimate\]'
+name=$(basename "${RWC_SMOKE_SCRIPT:-smoke.js}" .js)
+
+# Print the session log and fail. On GitHub, also add an annotation with
+# the first line that explains it, which can be read without the log.
+fail() {
+    cat "$log"
+    if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
+        local reason
+        reason=$(grep -m1 -E "$errors" "$log" || echo "$1")
+        # GitHub reads % as the start of an escape.
+        echo "::error title=$name ($backend)::${reason//%/%25}"
+    fi
+    exit 1
+}
+
 mkdir -p "$scratch"/{runtime,data,config,cache,ext}
 chmod 700 "$scratch/runtime"
 
@@ -54,24 +86,16 @@ for monitor in ${RWC_SMOKE_MONITOR:-1280x720}; do
     monitor_args+=(--virtual-monitor "$monitor")
 done
 
-log="$scratch/session.log"
-# Keep the log for inspection if RWC_SMOKE_LOG names a file.
-trap '[[ -n "${RWC_SMOKE_LOG:-}" && -f "$log" ]] && cp -- "$log" "$RWC_SMOKE_LOG"; rm -rf -- "$scratch"' EXIT
 if ! timeout -k 3s 60s dbus-run-session -- gnome-shell --headless \
     --force-animations "${compositor_args[@]}" \
     "${monitor_args[@]}" \
     --automation-script "${RWC_SMOKE_SCRIPT:-$repo_root/tests/smoke.js}" > "$log" 2>&1; then
-    cat "$log"
-    exit 1
+    fail 'The session timed out or failed'
 fi
 
-if ! grep -q 'RWC_SMOKE_PASS' "$log" || grep -Eq \
-    'GNOME Shell-CRITICAL|JS ERROR|JS WARNING|Failed to create offscreen|already disposed|\(gnome-shell:[0-9]+\).*CRITICAL|\[RWC Ultimate\]' \
-    "$log"; then
-    cat "$log"
-    exit 1
+if ! grep -q 'RWC_SMOKE_PASS' "$log" || grep -Eq "$errors" "$log"; then
+    fail 'The script did not finish'
 fi
 
 grep '^RWC_SKIP' "$log" || true
-printf 'GNOME Shell 51 %s %s passed.\n' "$backend" \
-    "$(basename "${RWC_SMOKE_SCRIPT:-smoke.js}" .js)"
+printf 'GNOME Shell 51 %s %s passed.\n' "$backend" "$name"
