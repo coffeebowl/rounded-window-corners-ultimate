@@ -6,7 +6,8 @@
 # RWC_SMOKE_MONITOR sets the size of the virtual monitor, 1280x720 by
 # default, or of several, separated by spaces. RWC_SMOKE_SCRIPT selects
 # another automation script, for example tests/coverage-smoke.js.
-# RWC_SMOKE_LOG keeps the session log.
+# RWC_SMOKE_LOG keeps the session log. RWC_SMOKE_NO_X11 skips the X11
+# runs.
 #
 # The session uses its own XDG directories and an in-memory GSettings
 # backend, so it never touches the settings or extensions of the
@@ -14,6 +15,7 @@
 set -euo pipefail
 
 repo_root=$(cd -- "$(dirname -- "$0")/.." && pwd)
+args=("$@")
 backend=${1:-wayland}
 shot=${2:-}
 
@@ -22,6 +24,12 @@ case "$backend" in
     x11) compositor_args=() ;;
     *) echo 'Usage: tests/run-smoke.sh [wayland|x11] [screenshot.png]' >&2; exit 2 ;;
 esac
+
+name=$(basename "${RWC_SMOKE_SCRIPT:-smoke.js}" .js)
+if [[ $backend == x11 && -n "${RWC_SMOKE_NO_X11:-}" ]]; then
+    printf 'GNOME Shell 51 x11 %s skipped.\n' "$name"
+    exit 0
+fi
 
 case "$(gnome-shell --version)" in
     'GNOME Shell 51'*) ;;
@@ -47,17 +55,41 @@ cleanup() {
 trap cleanup EXIT
 
 errors='GNOME Shell-CRITICAL|JS ERROR|JS WARNING|Failed to create offscreen|already disposed|\(gnome-shell:[0-9]+\).*CRITICAL|\[RWC Ultimate\]'
-name=$(basename "${RWC_SMOKE_SCRIPT:-smoke.js}" .js)
 
-# Print the session log and fail. On GitHub, also add an annotation with
-# the first line that explains it, which can be read without the log.
+# The shell's test client, a GTK app that opens the test windows, now and
+# then crashes under Xwayland on slow machines, in the middle of a call.
+# That is not ours to fix, so such a run is repeated once.
+client_crashed() {
+    [[ -z "${RWC_SMOKE_RETRY:-}" ]] &&
+        grep -q 'Message recipient disconnected from message bus' "$log"
+}
+
+# Print the session log and fail, or try again after a crashed test
+# client. On GitHub, also add annotations, which can be read without the
+# log: the first line that explains the failure, and the warnings and
+# errors right before it, for example from Xwayland or the test client.
 fail() {
     cat "$log"
+    local level=error
+    client_crashed && level=warning
     if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
-        local reason
+        local reason stop context
         reason=$(grep -m1 -E "$errors" "$log" || echo "$1")
-        # GitHub reads % as the start of an escape.
-        echo "::error title=$name ($backend)::${reason//%/%25}"
+        # GitHub reads % as the start of an escape and %0A as a line break.
+        echo "::$level title=$name ($backend)::${reason//%/%25}"
+        # What led to the failure, without the noise of shutting down.
+        stop=$(grep -n -m1 -E "$errors" "$log" | cut -d: -f1)
+        context=$(head -n "${stop:-$(wc -l < "$log")}" "$log" |
+            grep -iE 'xwayland|perf-helper|gdk|gtk|warning|critical|error|fail' |
+            tail -n 40 | cut -c1-240 | sed 's/%/%25/g' | sed ':a;N;$!ba;s/\n/%0A/g')
+        # GitHub cuts annotations after 4096 characters; keep the end.
+        (( ${#context} <= 3800 )) || context="...${context: -3800}"
+        [[ -z "$context" ]] || echo "::notice title=$name ($backend) log::$context"
+    fi
+    if [[ $level == warning ]]; then
+        echo "The test client crashed, trying $name ($backend) once more." >&2
+        RWC_SMOKE_RETRY=1 "$0" "${args[@]}"
+        exit
     fi
     exit 1
 }

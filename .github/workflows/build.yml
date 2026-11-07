@@ -63,5 +63,10 @@ jobs:
       - name: Checkout the repository
         uses: actions/checkout@v4
 
+      # Only the Wayland runs: on the runners, the shell's GTK test client
+      # crashes under Xwayland when it closes its windows. make smoke runs
+      # the X11 runs too, locally and before each release.
       - name: Run the smoke tests
         run: make smoke
+        env:
+          RWC_SMOKE_NO_X11: 1

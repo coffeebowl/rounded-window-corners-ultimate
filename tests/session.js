@@ -6,13 +6,40 @@ import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Shell from 'gi://Shell';
 
+import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
+
 /**
- * Load the packed extension from $RWC_TEST_EXTENSION, without enabling it.
+ * Wait until the shell's test client, which opens the test windows, is on
+ * the bus. The shell starts it with the script but does not wait for it,
+ * and for X11 it first has to start Xwayland, which takes a while on slow
+ * machines.
+ *
+ * @returns {Promise<void>}
+ */
+function testClientReady() {
+    return new Promise(resolve => {
+        const id = Gio.bus_watch_name(
+            Gio.BusType.SESSION,
+            'org.gnome.Shell.PerfHelper',
+            Gio.BusNameWatcherFlags.NONE,
+            () => {
+                Gio.bus_unwatch_name(id);
+                resolve();
+            },
+            null,
+        );
+    });
+}
+
+/**
+ * Load the packed extension from $RWC_TEST_EXTENSION, without enabling it,
+ * once the test client is ready.
  *
  * @returns {Promise<{extension: object, states: Map<object, object>}>} The
  *   extension and its window states.
  */
 export async function loadExtension() {
+    await testClientReady();
     const root = GLib.getenv('RWC_TEST_EXTENSION');
     const file = Gio.File.new_for_path(`${root}/metadata.json`);
     const [, bytes] = file.load_contents(null);
@@ -59,4 +86,22 @@ export async function screenshot({
     stream.close(null);
     const input = Gio.MemoryInputStream.new_from_bytes(stream.steal_as_bytes());
     return GdkPixbuf.Pixbuf.new_from_stream(input, null);
+}
+
+/**
+ * Poll until fn returns something truthy, for things that take longer on
+ * slow machines.
+ *
+ * @template T
+ * @param {() => T | Promise<T>} fn
+ * @param {number} [timeout] - Milliseconds to give up after.
+ * @returns {Promise<T | null>} The last value, or null on timeout.
+ */
+export async function waitFor(fn, timeout = 8000) {
+    for (let t = 0; t < timeout; t += 100) {
+        const value = await fn();
+        if (value) return value;
+        await Scripting.sleep(100);
+    }
+    return null;
 }

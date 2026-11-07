@@ -16,7 +16,12 @@ import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
 
 import {setScale} from './display.js';
 import {ok as check} from './harness.js';
-import {loadExtension, plainBackground, screenshot} from './session.js';
+import {
+    loadExtension,
+    plainBackground,
+    screenshot,
+    waitFor,
+} from './session.js';
 
 /** The red accent color, #e62d42 in st-theme-context.c. */
 const RED = [230, 45, 66];
@@ -59,6 +64,28 @@ function borderAmount(image, x, y, dx, dy, count) {
         sum += Math.max(0, pixels[j] - pixels[j + 1]) / (RED[0] - RED[1]);
     }
     return sum;
+}
+
+/**
+ * Measure how much red border lies across the middle of each edge of a
+ * window, in physical pixels.
+ *
+ * @param {import('gi://Meta').default.Window} win
+ * @param {number} scale - The monitor scale.
+ * @returns {Promise<{[edge: string]: number}>}
+ */
+async function measureBorder(win, scale) {
+    const frame = win.get_frame_rect();
+    const shot = await screenshot();
+    const at = v => Math.round(v * scale);
+    const cx = at(frame.x + frame.width / 2);
+    const cy = at(frame.y + frame.height / 2);
+    return {
+        left: borderAmount(shot, at(frame.x) - 3, cy, 1, 0, 6),
+        right: borderAmount(shot, at(frame.x + frame.width) - 3, cy, 1, 0, 6),
+        top: borderAmount(shot, cx, at(frame.y) - 3, 0, 1, 6),
+        bottom: borderAmount(shot, cx, at(frame.y + frame.height) - 3, 0, 1, 6),
+    };
 }
 
 /**
@@ -180,23 +207,18 @@ export async function run() {
     // the window is. Before, it was 1 or 2 pixels depending on the side
     // and position.
     if (await setScale(1.5)) {
+        const isRight = amount => Math.abs(amount - 1.5) < 0.1;
         for (const left of [100, 101]) {
             win.move_frame(false, left, 120);
-            await Scripting.sleep(600);
-            const frame = win.get_frame_rect();
-            const shot = await screenshot();
-            const at = v => Math.round(v * 1.5);
-            const cx = at(frame.x + frame.width / 2);
-            const cy = at(frame.y + frame.height / 2);
-            const amounts = {
-                left: borderAmount(shot, at(frame.x) - 3, cy, 1, 0, 6),
-                right: borderAmount(shot, at(frame.x + frame.width) - 3, cy, 1, 0, 6),
-                top: borderAmount(shot, cx, at(frame.y) - 3, 0, 1, 6),
-                bottom: borderAmount(shot, cx, at(frame.y + frame.height) - 3, 0, 1, 6),
-            };
+            // Slow machines take a while to move and repaint the window.
+            let amounts;
+            await waitFor(async () => {
+                amounts = await measureBorder(win, 1.5);
+                return Object.values(amounts).every(isRight);
+            }, 3000);
             for (const [name, amount] of Object.entries(amounts)) {
                 check(
-                    Math.abs(amount - 1.5) < 0.1,
+                    isRight(amount),
                     `The ${name} border at x = ${left} is ${amount.toFixed(2)} pixels wide at 150 %`,
                 );
             }

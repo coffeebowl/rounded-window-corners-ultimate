@@ -13,7 +13,12 @@ import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
 
 import {setScales} from './display.js';
 import {ok as check} from './harness.js';
-import {loadExtension, plainBackground, screenshot} from './session.js';
+import {
+    loadExtension,
+    plainBackground,
+    screenshot,
+    waitFor,
+} from './session.js';
 
 /**
  * The largest difference of a color channel between two areas.
@@ -45,7 +50,8 @@ function maxDifference(a, [ax, ay], b, [bx, by], width, height) {
 export async function run() {
     // The monitor at 100 % is the primary one, so its windows take part
     // in workspace switches.
-    if (!(await setScales([2, 1], 1))) {
+    const scales = [2, 1];
+    if (!(await setScales(scales, 1))) {
         print('RWC_SKIP needs two 1920x1080 monitors');
         print('RWC_SMOKE_PASS');
         return;
@@ -61,21 +67,27 @@ export async function run() {
     settings.set_int('focus-border-width', 1);
     Main.overview.hide();
 
-    // The 100 % monitor starts right of the one at 200 %. New windows open
-    // on the monitor with the pointer, so each window that stays is drawn
-    // there from the start. The third moves over and back.
+    // The 100 % monitor starts right of the one at 200 %. Each window that
+    // stays is drawn on its monitor from the start, the third moves over
+    // and back.
     const monitors = [0, 1].map(i => global.display.get_monitor_geometry(i));
     const [left, right] = monitors;
     const pointer = global.stage.context
         .get_backend()
         .get_default_seat()
         .create_virtual_device(Clutter.InputDeviceType.POINTER_DEVICE);
-    const open = async monitor => {
+    // New windows open on the monitor with the pointer, or on slow
+    // machines on the primary one, so make it both for the time.
+    const open = async index => {
+        const monitor = monitors[index];
+        await setScales(scales, index);
         pointer.notify_absolute_motion(
             GLib.get_monotonic_time(),
             monitor.x + monitor.width / 2,
             monitor.y + monitor.height / 2,
         );
+        // Input goes through its own thread, so the pointer arrives later.
+        await waitFor(() => global.display.get_current_monitor() === index);
         const before = global.get_window_actors();
         await Scripting.createTestWindow({width: 300, height: 200});
         await Scripting.waitTestWindows();
@@ -84,9 +96,9 @@ export async function run() {
             .get_window_actors()
             .find(a => !before.includes(a)).metaWindow;
     };
-    const there = await open(left);
-    const here = await open(right);
-    const moved = await open(right);
+    const there = await open(0);
+    const here = await open(1);
+    const moved = await open(1);
     check(
         there.get_monitor() === 0 && here.get_monitor() === 1,
         'The windows did not open on their monitors',
