@@ -11,7 +11,12 @@ import GObject from 'gi://GObject';
 
 import {RoundedCornersEffect} from '../effect/rounded_corners_effect.js';
 import {ShadowActor} from '../effect/shadow_actor.js';
-import {ROUNDED_CORNERS_EFFECT, WOBBLY_EFFECT} from '../utils/constants.js';
+import {
+    MAGIC_LAMP_MINIMIZE_EFFECT,
+    MAGIC_LAMP_UNMINIMIZE_EFFECT,
+    ROUNDED_CORNERS_EFFECT,
+    WOBBLY_EFFECT,
+} from '../utils/constants.js';
 import {logDebug} from '../utils/log.js';
 import {
     computeBounds,
@@ -31,6 +36,7 @@ import {
     DEFORM,
     FOCUS,
     GEOMETRY,
+    MINIMIZE,
     STATE,
     queueUpdate,
     states,
@@ -88,6 +94,8 @@ export function flush(state, bits) {
         else if (!wanted && state.effect) removeEffect(state);
     }
 
+    if (bits & MINIMIZE) syncMinimized(state);
+
     // The focus decides the border, so this runs on focus changes too.
     if (state.effect) updateEffect(state);
 
@@ -106,21 +114,8 @@ export function teardown(state) {
     for (const emitter of state.emitters) emitter.disconnectObject(state);
     state.emitters.clear();
     state.wobbly = null;
+    state.lampTimer = null;
     state.texture = null;
-}
-
-/**
- * Hide the shadow and pause the corners while the "Compiz alike magic lamp
- * effect" extension animates a minimize.
- *
- * @param {WindowState} state - The window being minimized.
- */
-export function onMinimize(state) {
-    const magicLampEffect = state.actor.get_effect('minimize-magic-lamp-effect');
-    if (magicLampEffect && state.shadow && state.effect) {
-        logDebug('Minimizing with magic lamp effect');
-        setLampHidden(state, true);
-    }
 }
 
 /**
@@ -204,40 +199,43 @@ export function syncShadowVisible(state) {
 }
 
 /**
- * Show the shadow again after a magic lamp unminimize, and refresh Chromium
- * windows once they settled.
+ * Follow a minimize or unminimize: hide shadow and corners while the
+ * "Compiz alike magic lamp effect" extension animates it, and refresh
+ * Chromium windows once they settled after unminimizing.
  *
- * @param {WindowState} state - The window being unminimized.
+ * That extension adds its effect in its own signal handlers, which may run
+ * after ours, so this runs from the update queue. A minimize and unminimize
+ * in the same frame end up here once, the current state decides.
+ *
+ * @param {WindowState} state - The window.
  */
-export function onUnminimize(state) {
-    // Compatibility with "Compiz alike magic lamp effect".
-    // When unminimizing a window, wait until the effect is completed before
-    // showing the shadow.
-    const magicLampEffect = state.actor.get_effect(
-        'unminimize-magic-lamp-effect',
-    );
-    if (!magicLampEffect && state.lampHidden) {
-        // Minimized with the magic lamp, but restored without it.
-        setLampHidden(state, false);
-    }
-    if (magicLampEffect && state.shadow && state.effect) {
-        setLampHidden(state, true);
-        const timer = magicLampEffect.timerId;
+function syncMinimized(state) {
+    // Only the latest animation counts, an older one may still run.
+    stopLampTimer(state);
 
+    const {minimized} = state.win;
+    const lamp = state.actor.get_effect(
+        minimized ? MAGIC_LAMP_MINIMIZE_EFFECT : MAGIC_LAMP_UNMINIMIZE_EFFECT,
+    );
+    const hidden = Boolean(lamp && state.effect);
+    setLampHidden(state, hidden);
+    if (minimized) return;
+
+    // Show shadow and corners again shortly before the unminimize ends.
+    if (hidden) {
+        const timer = lamp.timerId;
         timer.connectObject(
             'new-frame',
             source => {
-                // Wait until the effect is 98% completed
-                if (source.get_progress() > 0.98) {
-                    logDebug('Unminimizing with magic lamp effect');
-                    setLampHidden(state, false);
-                    timer.disconnectObject(state);
-                    state.emitters.delete(timer);
-                }
+                if (source.get_progress() <= 0.98) return;
+                logDebug('Unminimized with magic lamp effect');
+                stopLampTimer(state);
+                setLampHidden(state, false);
             },
             state,
         );
         // Disconnected in teardown if the window goes away first.
+        state.lampTimer = timer;
         state.emitters.add(timer);
     }
 
@@ -250,8 +248,19 @@ export function onUnminimize(state) {
     // See https://github.com/flexagoon/rounded-window-corners/issues/124
     //
     // If the app is not known yet, the refresh follows once it is.
-    if (state.app) refreshChromiumLater(state);
-    else startAppDetection(state, () => refreshChromiumLater(state));
+    startAppDetection(state, () => refreshChromiumLater(state));
+}
+
+/**
+ * Stop following the unminimize animation of a window.
+ *
+ * @param {WindowState} state - The window.
+ */
+function stopLampTimer(state) {
+    if (!state.lampTimer) return;
+    state.lampTimer.disconnectObject(state);
+    state.emitters.delete(state.lampTimer);
+    state.lampTimer = null;
 }
 
 /**
@@ -415,13 +424,14 @@ function createEffect(state, target) {
     state.shadow = shadow;
 
     // Bind properties of the window to the shadow actor. Visibility is set
-    // by syncShadowVisible, since it also depends on the window state.
+    // by syncShadowVisible, since it also depends on the window state, and
+    // the pivot point by updateEffect, since the shadow is larger.
     for (const prop of [
-        'pivot-point',
         'translation-x',
         'translation-y',
         'scale-x',
         'scale-y',
+        'opacity',
     ]) {
         state.bindings.push(
             state.actor.bind_property(
@@ -533,4 +543,15 @@ function updateEffect(state) {
             constraint.offset = offsets[i];
         }
     });
+
+    // Scale the shadow around the same point as the window, for example at
+    // the bottom edge when a window opens. The pivot point is relative to
+    // the size, and the shadow is larger.
+    const {actor} = state;
+    const [x, y, width, height] = offsets;
+    const [pivotX, pivotY] = actor.get_pivot_point();
+    shadow.set_pivot_point(
+        (pivotX * actor.width - x) / (actor.width + width),
+        (pivotY * actor.height - y) / (actor.height + height),
+    );
 }

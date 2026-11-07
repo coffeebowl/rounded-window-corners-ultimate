@@ -12,12 +12,14 @@
  * {@link startUpdates}.
  */
 
-/** The window's size or position changed. */
+/** The window's size, position or pivot point changed. */
 export const GEOMETRY = 1;
 /** The window gained or lost focus, or moved to another workspace. */
 export const FOCUS = 2;
 /** Something changed that decides whether the window has the effect. */
 export const STATE = 4;
+/** The window was minimized or unminimized. */
+export const MINIMIZE = 8;
 /** Another extension may have added an effect that deforms the window. */
 export const DEFORM = 16;
 
@@ -45,7 +47,10 @@ export const DEFORM = 16;
  * @property {number} unminimizeTimeoutId - Pending Chromium refresh.
  * @property {boolean} suspended - Hidden behind an opaque window that
  *   covers the monitor, so the effect and shadow are paused.
- * @property {boolean} lampHidden - The magic lamp animation hides the shadow.
+ * @property {boolean} lampHidden - The magic lamp animation hides the
+ *   shadow and pauses the corners.
+ * @property {import('gi://Clutter').default.Timeline | null} lampTimer -
+ *   The unminimize animation that shows them again once it is almost done.
  * @property {import('gi://Clutter').default.Effect | null} wobbly - The
  *   wobbly effect of "Compiz windows effect" while it deforms the window;
  *   it hides the shadow, which cannot wobble along.
@@ -126,6 +131,7 @@ export function createState(actor, win) {
         unminimizeTimeoutId: 0,
         suspended: false,
         lampHidden: false,
+        lampTimer: null,
         wobbly: null,
         shadowHidden: false,
         dirty: 0,

@@ -20,6 +20,7 @@ import {
     DEFORM,
     FOCUS,
     GEOMETRY,
+    MINIMIZE,
     STATE,
     createState,
     dropState,
@@ -144,9 +145,9 @@ export function enableEffect() {
 
     global.windowManager.connectObject(
         'minimize',
-        (_, actor) => withState(actor, handlers.onMinimize),
+        (_, actor) => withState(actor, state => queueUpdate(state, MINIMIZE)),
         'unminimize',
-        (_, actor) => withState(actor, handlers.onUnminimize),
+        (_, actor) => withState(actor, state => queueUpdate(state, MINIMIZE)),
         'size-change',
         (_, actor) => withState(actor, state => queueUpdate(state, DEFORM)),
         'size-changed',
@@ -230,6 +231,9 @@ function track(actor) {
         () => queueCoverage(),
         'notify::scale-y',
         () => queueCoverage(),
+        // Animations scale windows around their pivot point.
+        'notify::pivot-point',
+        () => queueUpdate(state, GEOMETRY),
         'notify::translation-x',
         () => queueCoverage(),
         'notify::translation-y',

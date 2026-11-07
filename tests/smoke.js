@@ -6,6 +6,7 @@
 import Clutter from 'gi://Clutter';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
+import Graphene from 'gi://Graphene';
 import Meta from 'gi://Meta';
 import Shell from 'gi://Shell';
 import St from 'gi://St';
@@ -100,10 +101,31 @@ export async function run() {
         workspace.index() + 1,
     );
     if (next) {
+        // A minimized window gets an invisible clone during the switch,
+        // its shadow clone has to be invisible too.
+        actors[1].metaWindow.minimize();
+        await Scripting.sleep(350);
         Main.wm.actionMoveWorkspace(next);
+        const {monitors} = Main.wm._workspaceAnimation._switchData;
+        const shadowClones = monitors
+            .flatMap(m => m._workspaceGroups)
+            .flatMap(g => g.get_children())
+            .filter(c => c instanceof Clutter.Clone);
+        const shadowCloneOf = actor =>
+            shadowClones.find(c => c.source === states.get(actor).shadow);
+        check(
+            shadowCloneOf(actors[0])?.visible,
+            'A shown window needs a visible shadow clone',
+        );
+        check(
+            shadowCloneOf(actors[1])?.visible === false,
+            'A minimized window needs an invisible shadow clone',
+        );
         await Scripting.sleep(650);
         Main.wm.actionMoveWorkspace(workspace);
         await Scripting.sleep(650);
+        actors[1].metaWindow.unminimize();
+        await Scripting.sleep(350);
     }
 
     // Alt+Esc hides the selected window and shows a clone of it instead
@@ -128,6 +150,36 @@ export async function run() {
 
     const window = actors[0].metaWindow;
     const state = states.get(actors[0]);
+
+    // Freeze a window in its opening animation (windowManager.js): scaled
+    // around the middle of its bottom edge and half faded in. The shadow
+    // has to scale around the same point and fade along.
+    const frameBottom = actor => {
+        const frame = window.get_frame_rect();
+        return actor.apply_transform_to_point(
+            new Graphene.Point3D({
+                x: frame.x + frame.width / 2 - actor.x,
+                y: frame.y + frame.height - actor.y,
+            }),
+        );
+    };
+    actors[0].set_pivot_point(0.5, 1);
+    actors[0].set_scale(0.5, 0.5);
+    actors[0].opacity = 128;
+    await Scripting.sleep(100);
+    const windowBottom = frameBottom(actors[0]);
+    const shadowBottom = frameBottom(state.shadow);
+    check(
+        Math.hypot(
+            windowBottom.x - shadowBottom.x,
+            windowBottom.y - shadowBottom.y,
+        ) < 0.5 && state.shadow.opacity === 128,
+        'The shadow has to follow the opening animation',
+    );
+    actors[0].set_pivot_point(0, 0);
+    actors[0].set_scale(1, 1);
+    actors[0].opacity = 255;
+    await Scripting.sleep(100);
 
     // Count painted frames to check that a window updates at most once per
     // frame, however many signals a resize emits.
@@ -179,6 +231,43 @@ export async function run() {
     );
     actors[0].remove_effect_by_name('wobbly-compiz-effect');
     check(state.shadow.visible, 'The shadow has to return after wobbling');
+
+    // Like "Compiz alike magic lamp effect", animate minimizing and
+    // unminimizing with an effect added after the extension's handler ran.
+    // Shadow and corners hide until the animation is almost done.
+    const lampIds = ['minimize', 'unminimize'].map(signal =>
+        global.window_manager.connect(signal, (_, a) => {
+            const lamp = new Clutter.DesaturateEffect();
+            lamp.timerId = new Clutter.Timeline({actor: a, duration: 400});
+            lamp.timerId.connect('completed', () => a.remove_effect(lamp));
+            a.add_effect_with_name(`${signal}-magic-lamp-effect`, lamp);
+            lamp.timerId.start();
+        }),
+    );
+    const lampPaused = () => !state.shadow.visible && !state.effect.enabled;
+    for (const action of ['minimize', 'unminimize']) {
+        window[action]();
+        await Scripting.sleep(100);
+        check(lampPaused(), `${action}: the magic lamp has to pause the window`);
+        await Scripting.sleep(500);
+    }
+    // Minimized again before the unminimize ended: when the old animation
+    // ends, the new one still runs, and the window has to stay paused.
+    window.minimize();
+    await Scripting.sleep(600);
+    window.unminimize();
+    await Scripting.sleep(200);
+    window.minimize();
+    await Scripting.sleep(250);
+    check(lampPaused(), 'The end of an older magic lamp must not resume');
+    await Scripting.sleep(400);
+    window.unminimize();
+    await Scripting.sleep(600);
+    for (const id of lampIds) global.window_manager.disconnect(id);
+    check(
+        state.shadow.visible && state.effect.enabled,
+        'The window has to return after the magic lamp',
+    );
 
     window.move_resize_frame(false, 30, 30, 720, 500);
     await Scripting.sleep(350);

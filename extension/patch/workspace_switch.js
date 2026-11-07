@@ -87,13 +87,14 @@ export function addShadowsInWorkspaceSwitch(self) {
                     shadowClone,
                 );
 
-                // Remember the shadow clone, so the restacked handler above
-                // can keep it below its window clone.
+                // Follow the window clone, which starts hidden for minimized
+                // windows. Remember the shadow clone, so the restacked
+                // handler above can keep it below its window clone.
                 const binding = clone.bind_property(
                     'visible',
                     shadowClone,
                     'visible',
-                    GObject.BindingFlags.DEFAULT,
+                    GObject.BindingFlags.SYNC_CREATE,
                 );
                 shadowClones.set(clone, {shadowClone, binding});
                 clone.connectObject(
