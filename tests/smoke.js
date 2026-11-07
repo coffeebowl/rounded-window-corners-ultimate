@@ -287,6 +287,29 @@ export async function run() {
     await Scripting.destroyTestWindows();
     await Scripting.sleep(400);
 
+    // Windows that close right after opening, some after going fullscreen,
+    // like mpv or Electron apps in upstream issues #115 and #131: before
+    // their first buffer, during the app detection or the opening
+    // animation. Nothing may run on them afterwards or stay behind.
+    for (let i = 0; i < 12; i++) {
+        await Scripting.createTestWindow({width: 300, height: 200});
+        await Scripting.sleep(i * 15);
+        if (i % 3 === 2) {
+            for (const actor of global.get_window_actors())
+                actor.metaWindow?.make_fullscreen();
+            await Scripting.sleep(i * 5);
+        }
+        await Scripting.destroyTestWindows();
+    }
+    await Scripting.sleep(600);
+    check(states.size === 0, 'Closed windows left window states behind');
+    check(
+        !global.window_group
+            .get_children()
+            .some(child => child.name === 'Shadow Actor'),
+        'Closed windows left shadow actors behind',
+    );
+
     extension.disable();
 
     // Like Blur my Shell, put a widget in front of the window contents

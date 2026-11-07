@@ -1,6 +1,7 @@
 /**
  * @file Fixed values for how windows look, after `window.csd` in libadwaita
  * 1.10 (gtk.css). They are the same in light and dark style.
+ * tests/adwaita.test.js compares them with the installed libadwaita.
  */
 
 /** Corner radius in pixels, as libadwaita windows have it. */

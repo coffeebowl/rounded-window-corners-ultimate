@@ -16,7 +16,8 @@ jobs:
     container: fedora:latest
     steps:
       - name: Install build dependencies
-        run: dnf install -y make gettext gjs /usr/bin/gnome-extensions
+        # libadwaita for the test that compares config.js with its style.
+        run: dnf install -y make gettext gjs libadwaita /usr/bin/gnome-extensions
 
       - name: Checkout the repository
         uses: actions/checkout@v4

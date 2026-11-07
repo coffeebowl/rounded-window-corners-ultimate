@@ -1,17 +1,11 @@
 // Tests for the shadow image in extension/utils/shadow_texture.js.
 
+import {FOCUSED_SHADOW, RADIUS} from '../extension/utils/config.js';
 import {renderShadow, shadowLayout} from '../extension/utils/shadow_texture.js';
 import {equal, ok, run, test} from './harness.js';
 
-/** libadwaita's focused window shadow, see extension/utils/config.js. */
-const FOCUSED = {
-    radius: 15,
-    layers: [
-        {blur: 14, spread: 5, alpha: 0.15},
-        {blur: 5, spread: 2, alpha: 0.1},
-        {blur: 0, spread: 1, alpha: 0.05},
-    ],
-};
+/** libadwaita's focused window shadow. */
+const FOCUSED = {radius: RADIUS, layers: FOCUSED_SHADOW};
 
 /** Alpha of a pixel, from 0 to 255. */
 function alphaAt(image, x, y) {
