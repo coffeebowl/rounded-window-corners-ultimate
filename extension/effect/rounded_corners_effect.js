@@ -4,7 +4,6 @@ import Clutter from 'gi://Clutter';
 import Cogl from 'gi://Cogl';
 import GObject from 'gi://GObject';
 
-import {RADIUS} from '../utils/config.js';
 import {readShader} from '../utils/file.js';
 import {updateTextureFilters} from './texture_filters.js';
 
@@ -119,8 +118,9 @@ export const RoundedCornersEffect = GObject.registerClass(
          * @param {import('../utils/types.js').Border} border - The border inside the window edge
          * @param {boolean} clip - Whether to cut off everything outside the
          *   rounded window, or only draw the border
+         * @param {number} cornerRadius - Radius of the corners, 0 for square
          */
-        updateUniforms(windowBounds, border, clip) {
+        updateUniforms(windowBounds, border, clip, cornerRadius) {
             const bounds = [
                 windowBounds.x1,
                 windowBounds.y1,
@@ -141,7 +141,7 @@ export const RoundedCornersEffect = GObject.registerClass(
                 0,
                 Math.min(bounds[2] - bounds[0], bounds[3] - bounds[1]) / 2,
             );
-            const radius = Math.min(RADIUS, maxRadius);
+            const radius = Math.min(cornerRadius, maxRadius);
             // The inner edge of the border keeps the same distance from the
             // outer one along the curve.
             const borderedAreaRadius = Math.max(radius - width, 0);

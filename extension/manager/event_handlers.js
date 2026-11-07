@@ -11,6 +11,7 @@ import GObject from 'gi://GObject';
 
 import {RoundedCornersEffect} from '../effect/rounded_corners_effect.js';
 import {ShadowActor} from '../effect/shadow_actor.js';
+import {RADIUS} from '../utils/config.js';
 import {
     MAGIC_LAMP_MINIMIZE_EFFECT,
     MAGIC_LAMP_UNMINIMIZE_EFFECT,
@@ -25,6 +26,7 @@ import {
     detectApp,
     getBorder,
     getShadowCfg,
+    isMaximized,
     OTHER_APP,
     releaseApp,
     shouldEnableEffect,
@@ -156,15 +158,23 @@ function syncEffectEnabled(state) {
 }
 
 /**
- * Check whether the effect of a window only draws the focus border: the
- * window is a libadwaita app, which rounds itself and draws its own line
- * and shadow. The effect is then only on while the window has the focus,
- * and cuts nothing off.
+ * Check whether the effect of a window only draws the focus border, so it
+ * is only on while the window has the focus: libadwaita apps round
+ * themselves and draw their own line and shadow, maximized and tiled
+ * windows stay square and have neither.
  *
  * @param {WindowState} state - The window.
  * @returns {boolean}
  */
 function isBorderOnly(state) {
+    return isLibadwaita(state) || isMaximized(state.win);
+}
+
+/**
+ * @param {WindowState} state - The window.
+ * @returns {boolean} Whether the window belongs to a libadwaita app.
+ */
+function isLibadwaita(state) {
     return state.app?.libadwaita === true;
 }
 
@@ -416,7 +426,7 @@ function createEffect(state, target) {
     state.texture?.set_create_mipmaps(false);
 
     // libadwaita apps draw their own shadow.
-    if (isBorderOnly(state)) return;
+    if (isLibadwaita(state)) return;
 
     const shadow = createShadow(state.actor);
     state.shadow = shadow;
@@ -527,11 +537,15 @@ function updateEffect(state) {
     // soon as it is visible again.
     syncEffectEnabled(state);
 
+    // libadwaita's own shadow lies outside the window and has to stay.
+    // Everything else is cut off, also around maximized windows, whose old
+    // buffer can still have room for a shadow right after maximizing.
     const windowContentOffset = computeWindowContentsOffset(win);
     effect.updateUniforms(
         computeBounds(effectActor, windowContentOffset),
         getBorder(win),
-        !isBorderOnly(state),
+        !isLibadwaita(state),
+        isMaximized(win) ? 0 : RADIUS,
     );
 
     if (!shadow) return;

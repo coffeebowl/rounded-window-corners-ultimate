@@ -10,6 +10,7 @@
 import GdkPixbuf from 'gi://GdkPixbuf';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
+import Meta from 'gi://Meta';
 import Shell from 'gi://Shell';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
@@ -71,6 +72,37 @@ function borderAmount(image, x, y, dx, dy, count) {
     return sum;
 }
 
+/**
+ * Check that a 1 px border lies exactly on each edge of a window frame,
+ * with no border inside or outside of it.
+ *
+ * @param {GdkPixbuf.Pixbuf} image
+ * @param {{x: number, y: number, width: number, height: number}} frame
+ * @param {string} what - The window, for the message.
+ */
+function checkBorderOnEdges(image, {x, y, width, height}, what) {
+    const isRed = (px, py) =>
+        px >= 0 &&
+        py >= 0 &&
+        px < image.get_width() &&
+        py < image.get_height() &&
+        isColor(image, px, py);
+    const midX = x + Math.floor(width / 2);
+    const midY = y + Math.floor(height / 2);
+    // Each edge as [first pixel of the frame, step to the outside].
+    const edges = {
+        left: [x, midY, -1, 0],
+        right: [x + width - 1, midY, 1, 0],
+        top: [midX, y, 0, -1],
+        bottom: [midX, y + height - 1, 0, 1],
+    };
+    for (const [name, [ex, ey, dx, dy]] of Object.entries(edges)) {
+        check(
+            isRed(ex, ey) && !isRed(ex + dx, ey + dy) && !isRed(ex - dx, ey - dy),
+            `The ${name} border of the ${what} window is not on the frame edge`,
+        );
+    }
+}
 
 export async function run() {
     const background = new Gio.Settings({
@@ -113,25 +145,10 @@ export async function run() {
     Main.activateWindow(win);
     await Scripting.sleep(600);
 
-    const {x, y, width, height} = win.get_frame_rect();
+    const {x, y, height} = win.get_frame_rect();
     const image = await screenshot();
-    const midX = x + Math.floor(width / 2);
     const midY = y + Math.floor(height / 2);
-    // Each edge as [first pixel of the frame, step to the outside].
-    const edges = {
-        left: [x, midY, -1, 0],
-        right: [x + width - 1, midY, 1, 0],
-        top: [midX, y, 0, -1],
-        bottom: [midX, y + height - 1, 0, 1],
-    };
-    for (const [name, [ex, ey, dx, dy]] of Object.entries(edges)) {
-        check(
-            isColor(image, ex, ey) &&
-                !isColor(image, ex + dx, ey + dy) &&
-                !isColor(image, ex - dx, ey - dy),
-            `The ${name} border is not on the frame edge`,
-        );
-    }
+    checkBorderOnEdges(image, win.get_frame_rect(), 'focused');
 
     // Only the focused window has the border, the other one the thin line.
     const otherX = other.get_frame_rect().x;
@@ -159,6 +176,30 @@ export async function run() {
     settings.set_boolean('focus-border', true);
     await Scripting.sleep(300);
     check(isColor(await screenshot(), x, midY), 'The border has to return');
+
+    // Maximized and tiled windows (tiling to a side maximizes vertically)
+    // keep the border while focused, square, and lose it with the focus.
+    for (const [what, flags] of [
+        ['maximized', Meta.MaximizeFlags.BOTH],
+        ['tiled', Meta.MaximizeFlags.VERTICAL],
+    ]) {
+        win.set_maximize_flags(flags);
+        await Scripting.sleep(600);
+        const frame = win.get_frame_rect();
+        const left = [frame.x, frame.y + Math.floor(frame.height / 2)];
+        shot = await screenshot();
+        checkBorderOnEdges(shot, frame, what);
+        check(isColor(shot, frame.x, frame.y), `The ${what} window is not square`);
+        Main.activateWindow(other);
+        await Scripting.sleep(300);
+        check(
+            !isColor(await screenshot(), ...left),
+            `An unfocused ${what} window has no focus border`,
+        );
+        Main.activateWindow(win);
+        win.unmaximize();
+        await Scripting.sleep(600);
+    }
 
     // At 150 %, a 1 px border covers 1.5 pixels on every side, wherever
     // the window is. Before, it was 1 or 2 pixels depending on the side

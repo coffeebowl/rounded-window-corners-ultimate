@@ -164,11 +164,7 @@ export function computeShadowActorOffset([
 export function updateShadowActorStyle(win, actor, style) {
     actor.setStyle(style);
 
-    return (
-        win.maximizedHorizontally ||
-        win.maximizedVertically ||
-        coversMonitor(win)
-    );
+    return isMaximized(win) || coversMonitor(win);
 }
 
 /**
@@ -283,13 +279,26 @@ export function shouldEnableEffect(win, app) {
     if (app === null || (app.libadwaita && focusBorderWidth() <= 0))
         return false;
 
-    // Maximized and fullscreen windows stay square. Borderless windows in
-    // monitor size count as fullscreen.
-    return !(
-        win.maximizedHorizontally ||
-        win.maximizedVertically ||
-        coversMonitor(win)
-    );
+    // Mutter keeps the maximized state of a window that goes fullscreen.
+    if (win.fullscreen) return false;
+
+    // Maximized and tiled windows stay square and only get the focus
+    // border, also when they cover a monitor without the top bar.
+    if (isMaximized(win)) return focusBorderWidth() > 0;
+
+    // Borderless windows in monitor size count as fullscreen.
+    return !coversMonitor(win);
+}
+
+/**
+ * Check whether a window is maximized or tiled. Mutter reports tiling to
+ * the left or right as maximized vertically.
+ *
+ * @param {import('gi://Meta').default.Window} win - The window to check.
+ * @returns {boolean}
+ */
+export function isMaximized(win) {
+    return win.maximizedHorizontally || win.maximizedVertically;
 }
 
 /** Markers in /proc/<pid>/maps and what they mean. */

@@ -61,7 +61,7 @@ The extension is not on extensions.gnome.org.
   style alike. libadwaita apps keep their own, since they draw all this
   themselves.
 - An optional focus border in the system's accent color marks the active
-  window, libadwaita apps included.
+  window, libadwaita apps and maximized or tiled windows included.
 
 **Compatibility**
 
