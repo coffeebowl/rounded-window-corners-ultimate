@@ -15,7 +15,7 @@ import * as AltTab from 'resource:///org/gnome/shell/ui/altTab.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
 
-import {loadExtension, waitFor} from './session.js';
+import {afterNextPaint, loadExtension, waitFor} from './session.js';
 
 let failures = 0;
 
@@ -38,22 +38,6 @@ async function screenshot(name) {
     const stream = file.replace(null, false, Gio.FileCreateFlags.NONE, null);
     await new Shell.Screenshot().screenshot_area(0, 0, 1280, 720, stream);
     stream.close(null);
-}
-
-/**
- * Resolve with fn() right after the next frame was painted.
- *
- * @template T
- * @param {() => T} fn
- * @returns {Promise<T>}
- */
-function afterNextPaint(fn) {
-    return new Promise(resolve => {
-        const id = global.stage.connect('after-paint', () => {
-            global.stage.disconnect(id);
-            resolve(fn());
-        });
-    });
 }
 
 /** @param {import('gi://Meta').default.Window} win */

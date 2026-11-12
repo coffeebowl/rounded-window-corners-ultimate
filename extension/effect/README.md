@@ -6,7 +6,8 @@ This directory contains the code for applying GLSL effects to windows.
 
 Picks the texture filters of the rounded corners effect's offscreen texture
 by how much the window is scaled down while it is painted, so previews in
-the overview stay sharp.
+the overview stay sharp, and puts them back once the window is painted in
+place again.
 
 ## `rounded_corners_effect.js`
 

@@ -105,3 +105,46 @@ export async function waitFor(fn, timeout = 8000) {
     }
     return null;
 }
+
+/**
+ * The largest difference of a color channel between two areas.
+ *
+ * @param {import('gi://GdkPixbuf').default.Pixbuf} a
+ * @param {number[]} aOrigin - Top left corner of the area in `a`.
+ * @param {import('gi://GdkPixbuf').default.Pixbuf} b
+ * @param {number[]} bOrigin - Top left corner of the area in `b`.
+ * @param {number} width
+ * @param {number} height
+ * @returns {number}
+ */
+export function maxDifference(a, [ax, ay], b, [bx, by], width, height) {
+    const pa = a.get_pixels();
+    const pb = b.get_pixels();
+    const n = a.get_n_channels();
+    let max = 0;
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const i = (ay + y) * a.get_rowstride() + (ax + x) * n;
+            const j = (by + y) * b.get_rowstride() + (bx + x) * n;
+            for (let c = 0; c < 3; c++)
+                max = Math.max(max, Math.abs(pa[i + c] - pb[j + c]));
+        }
+    }
+    return max;
+}
+
+/**
+ * Resolve with fn() right after the next frame was painted.
+ *
+ * @template T
+ * @param {() => T} fn
+ * @returns {Promise<T>}
+ */
+export function afterNextPaint(fn) {
+    return new Promise(resolve => {
+        const id = global.stage.connect('after-paint', () => {
+            global.stage.disconnect(id);
+            resolve(fn());
+        });
+    });
+}

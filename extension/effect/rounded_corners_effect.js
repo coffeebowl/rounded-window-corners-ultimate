@@ -101,6 +101,12 @@ export const RoundedCornersEffect = GObject.registerClass(
         #shadowFocus = 1;
 
         /**
+         * Whether the last paint changed the texture filter, which then has
+         * to be put back. See texture_filters.js.
+         */
+        #filterChanged = false;
+
+        /**
          * Whether the shadow shows or heads for the focused look, null
          * before the first look.
          *
@@ -176,7 +182,11 @@ export const RoundedCornersEffect = GObject.registerClass(
          * @param {Clutter.PaintContext} paintContext
          */
         vfunc_paint_target(node, paintContext) {
-            updateTextureFilters(this, paintContext);
+            this.#filterChanged = updateTextureFilters(
+                this,
+                paintContext,
+                this.#filterChanged,
+            );
             super.vfunc_paint_target(node, paintContext);
         }
 

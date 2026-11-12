@@ -15,37 +15,11 @@ import {setScales} from './display.js';
 import {ok as check} from './harness.js';
 import {
     loadExtension,
+    maxDifference,
     plainBackground,
     screenshot,
     waitFor,
 } from './session.js';
-
-/**
- * The largest difference of a color channel between two areas.
- *
- * @param {import('gi://GdkPixbuf').default.Pixbuf} a
- * @param {number[]} aOrigin - Top left corner of the area in `a`.
- * @param {import('gi://GdkPixbuf').default.Pixbuf} b
- * @param {number[]} bOrigin - Top left corner of the area in `b`.
- * @param {number} width
- * @param {number} height
- * @returns {number}
- */
-function maxDifference(a, [ax, ay], b, [bx, by], width, height) {
-    const pa = a.get_pixels();
-    const pb = b.get_pixels();
-    const n = a.get_n_channels();
-    let max = 0;
-    for (let y = 0; y < height; y++) {
-        for (let x = 0; x < width; x++) {
-            const i = (ay + y) * a.get_rowstride() + (ax + x) * n;
-            const j = (by + y) * b.get_rowstride() + (bx + x) * n;
-            for (let c = 0; c < 3; c++)
-                max = Math.max(max, Math.abs(pa[i + c] - pb[j + c]));
-        }
-    }
-    return max;
-}
 
 export async function run() {
     // The monitor at 100 % is the primary one, so its windows take part
