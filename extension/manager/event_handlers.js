@@ -5,6 +5,7 @@
  * handler, so effects are never changed in the middle of a paint.
  */
 
+import Clutter from 'gi://Clutter';
 import GLib from 'gi://GLib';
 
 import {
@@ -201,27 +202,13 @@ function syncMinimized(state) {
     const lamp = state.actor.get_effect(
         minimized ? MAGIC_LAMP_MINIMIZE_EFFECT : MAGIC_LAMP_UNMINIMIZE_EFFECT,
     );
-    const hidden = Boolean(lamp && state.effect);
+    // Without the animation's timeline, from another version of that
+    // extension, its end cannot be seen, so nothing is hidden.
+    const timer = lamp?.timerId;
+    const hidden = Boolean(state.effect && timer instanceof Clutter.Timeline);
     setLampHidden(state, hidden);
+    if (hidden) followLamp(state, timer, minimized);
     if (minimized) return;
-
-    // Show shadow and corners again shortly before the unminimize ends.
-    if (hidden) {
-        const timer = lamp.timerId;
-        timer.connectObject(
-            'new-frame',
-            source => {
-                if (source.get_progress() <= 0.98) return;
-                logDebug('Unminimized with magic lamp effect');
-                stopLampTimer(state);
-                setLampHidden(state, false);
-            },
-            state,
-        );
-        // Disconnected in teardown if the window goes away first.
-        state.lampTimer = timer;
-        state.emitters.add(timer);
-    }
 
     // Chromium has a bug where windows are sometimes unminimized to the
     // wrong location, and then move to the correct position shortly after.
@@ -236,7 +223,37 @@ function syncMinimized(state) {
 }
 
 /**
- * Stop following the unminimize animation of a window.
+ * Show shadow and corners again when the magic lamp animation of a window
+ * ends: shortly before the end of an unminimize, and only after a
+ * minimize, or they would flash up in its last frames. A minimized window
+ * is still seen through clones, in the overview, Alt+Tab or a dock.
+ *
+ * @param {WindowState} state - The window.
+ * @param {import('gi://Clutter').default.Timeline} timer - The animation.
+ * @param {boolean} minimized - Whether it animates a minimize.
+ */
+function followLamp(state, timer, minimized) {
+    const show = () => {
+        logDebug(() => `Magic lamp effect ended for ${state.win.wmClass}`);
+        stopLampTimer(state);
+        setLampHidden(state, false);
+    };
+    timer.connectObject(
+        'new-frame',
+        source => {
+            if (!minimized && source.get_progress() > 0.98) show();
+        },
+        'completed',
+        show,
+        state,
+    );
+    // Disconnected in teardown if the window goes away first.
+    state.lampTimer = timer;
+    state.emitters.add(timer);
+}
+
+/**
+ * Stop following the magic lamp animation of a window.
  *
  * @param {WindowState} state - The window.
  */

@@ -48,7 +48,7 @@ export const MINIMIZE = 8;
  * @property {boolean} lampHidden - The magic lamp animation pauses the
  *   effect.
  * @property {import('gi://Clutter').default.Timeline | null} lampTimer -
- *   The unminimize animation that shows them again once it is almost done.
+ *   The magic lamp animation, which shows them again once it ends.
  * @property {number} dirty - Bitmask of pending changes.
  * @property {number} laterId - ID of the queued update, or 0.
  * @property {boolean} destroyed - Set once the window is gone.

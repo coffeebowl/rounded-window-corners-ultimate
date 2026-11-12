@@ -14,7 +14,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
 
 import {ok as check} from './harness.js';
-import {loadExtension} from './session.js';
+import {loadExtension, waitFor} from './session.js';
 
 /** Window states of the loaded extension, set in run(). */
 let states;
@@ -165,40 +165,63 @@ export async function run() {
 
     // Like "Compiz alike magic lamp effect", animate minimizing and
     // unminimizing with an effect added after the extension's handler ran.
-    // Shadow and corners pause until the animation is almost done.
+    // When the animation ends, the effect removes itself. Shadow and
+    // corners pause until the animation is almost done, or over.
+    let lampHasTimer = true;
     const lampIds = ['minimize', 'unminimize'].map(signal =>
         global.window_manager.connect(signal, (_, a) => {
             const lamp = new Clutter.DesaturateEffect();
-            lamp.timerId = new Clutter.Timeline({actor: a, duration: 400});
-            lamp.timerId.connect('completed', () => a.remove_effect(lamp));
+            const timer = new Clutter.Timeline({actor: a, duration: 400});
+            if (lampHasTimer) lamp.timerId = timer;
+            timer.connect('completed', () => a.remove_effect(lamp));
             a.add_effect_with_name(`${signal}-magic-lamp-effect`, lamp);
-            lamp.timerId.start();
+            timer.start();
         }),
     );
     const lampPaused = () => !state.room.enabled && !state.effect.enabled;
-    for (const action of ['minimize', 'unminimize']) {
+    const lampRunning = () =>
+        actors[0].get_effects().some(e => e.name.endsWith('magic-lamp-effect'));
+    const lampOver = () =>
+        !lampRunning() && state.room.enabled && state.effect.enabled;
+    // The animation starts a few frames after the call.
+    const animate = async action => {
         window[action]();
-        await Scripting.sleep(100);
+        return Boolean(await waitFor(lampRunning));
+    };
+    for (const action of ['minimize', 'unminimize']) {
+        check(await animate(action), `${action}: no magic lamp`);
         check(lampPaused(), `${action}: the magic lamp has to pause the window`);
-        await Scripting.sleep(500);
+        // Also minimized, for the overview, Alt+Tab and docks.
+        check(
+            await waitFor(lampOver),
+            `${action}: the window has to return after the magic lamp`,
+        );
     }
     // Minimized again before the unminimize ended: when the old animation
     // ends, the new one still runs, and the window has to stay paused.
-    window.minimize();
-    await Scripting.sleep(600);
-    window.unminimize();
+    await animate('minimize');
+    await waitFor(lampOver);
+    await animate('unminimize');
     await Scripting.sleep(200);
     window.minimize();
     await Scripting.sleep(250);
     check(lampPaused(), 'The end of an older magic lamp must not resume');
-    await Scripting.sleep(400);
-    window.unminimize();
-    await Scripting.sleep(600);
+    check(await waitFor(lampOver), 'The window has to return after the magic lamp');
+    await animate('unminimize');
+    await waitFor(lampOver);
+
+    // Another version of that extension may have no timeline to follow.
+    // Nothing is paused then, and nothing fails.
+    lampHasTimer = false;
+    for (const action of ['minimize', 'unminimize']) {
+        check(await animate(action), `${action}: no magic lamp`);
+        check(
+            state.room.enabled && state.effect.enabled,
+            `${action}: a magic lamp without timeline must not pause the window`,
+        );
+        await waitFor(() => !lampRunning());
+    }
     for (const id of lampIds) global.window_manager.disconnect(id);
-    check(
-        state.room.enabled && state.effect.enabled,
-        'The window has to return after the magic lamp',
-    );
 
     window.move_resize_frame(false, 30, 30, 720, 500);
     await Scripting.sleep(350);
