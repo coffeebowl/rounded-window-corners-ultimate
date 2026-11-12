@@ -35,8 +35,9 @@ function testClientReady() {
  * Load the packed extension from $RWC_TEST_EXTENSION, without enabling it,
  * once the test client is ready.
  *
- * @returns {Promise<{extension: object, states: Map<object, object>}>} The
- *   extension and its window states.
+ * @returns {Promise<{extension: object, states: Map<object, object>,
+ *   manager: object}>} The extension, its window states, and its
+ *   event_manager.js module.
  */
 export async function loadExtension() {
     await testClientReady();
@@ -46,12 +47,13 @@ export async function loadExtension() {
     const metadata = JSON.parse(new TextDecoder().decode(bytes));
     const {default: Extension} = await import(`file://${root}/extension.js`);
     const {states} = await import(`file://${root}/manager/window_state.js`);
+    const manager = await import(`file://${root}/manager/event_manager.js`);
     const extension = new Extension({
         ...metadata,
         path: root,
         dir: Gio.File.new_for_path(root),
     });
-    return {extension, states};
+    return {extension, states, manager};
 }
 
 /**

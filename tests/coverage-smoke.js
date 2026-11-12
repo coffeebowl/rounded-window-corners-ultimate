@@ -1,5 +1,6 @@
 // Automation script for pausing windows behind fullscreen windows. Run it
-// with: RWC_SMOKE_SCRIPT=$PWD/tests/coverage-smoke.js tests/run-smoke.sh x11
+// with: RWC_SMOKE_MONITOR='1280x720 1280x720'
+// RWC_SMOKE_SCRIPT=$PWD/tests/coverage-smoke.js tests/run-smoke.sh x11
 //
 // It needs glxgears (mesa-demos), whose X11 window gets a buffer without
 // alpha in fullscreen, like games do. Wayland test windows always have
@@ -148,10 +149,31 @@ export async function run() {
     windows[1].win.unmake_fullscreen();
     await Scripting.sleep(600);
 
-    // Disabling while windows are paused cleans up.
     bringToFront(gears.win);
     gears.win.make_fullscreen();
     await Scripting.sleep(1000);
+
+    // An app that moves its paused window to the other monitor does not
+    // restack, and the window shows its corners in the very first frame.
+    if (global.display.get_n_monitors() > 1) {
+        check(allPaused(), 'paused again in fullscreen');
+        const other = global.display.get_monitor_geometry(
+            gears.win.get_monitor() === 0 ? 1 : 0,
+        );
+        const moved = afterNextPaint(
+            () =>
+                !windows[1].suspended &&
+                windows[1].effect.enabled &&
+                windows[1].room.enabled,
+        );
+        windows[1].win.move_frame(false, other.x + 100, other.y + 100);
+        check(await moved, 'first frame after moving to the other monitor is active');
+        check(windows[0].suspended, 'the window that stays below is still paused');
+    } else {
+        print('RWC_SKIP moving to another monitor needs two monitors');
+    }
+
+    // Disabling while windows are paused cleans up.
     extension.disable();
     check(states.size === 0, 'disable while paused leaves no state');
 

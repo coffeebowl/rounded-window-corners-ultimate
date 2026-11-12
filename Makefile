@@ -28,7 +28,8 @@ test:
 smoke:
 	tests/run-smoke.sh wayland
 	tests/run-smoke.sh x11
-	RWC_SMOKE_SCRIPT=$(CURDIR)/tests/coverage-smoke.js tests/run-smoke.sh x11
+	RWC_SMOKE_MONITOR='1280x720 1280x720' RWC_SMOKE_SCRIPT=$(CURDIR)/tests/coverage-smoke.js \
+		tests/run-smoke.sh x11
 	RWC_SMOKE_MONITOR=1920x1080 RWC_SMOKE_SCRIPT=$(CURDIR)/tests/border-smoke.js \
 		tests/run-smoke.sh wayland
 	RWC_SMOKE_MONITOR=1920x1080 RWC_SMOKE_SCRIPT=$(CURDIR)/tests/border-smoke.js \

@@ -46,6 +46,20 @@ let coverageLaterId = 0;
  */
 const coveragePausedBy = new Set();
 
+/**
+ * Windows that covered their monitor at the last coverage check, opaque or
+ * not, shown or not. Only these can pause others, so most changes of other
+ * windows need no check. While pausing is off, no check runs and this can
+ * be out of date; nothing is paused then, and the check when pausing is
+ * allowed again brings it up to date.
+ *
+ * @type {Set<object>}
+ */
+const coverers = new Set();
+
+/** How many coverage checks ran, for debugging and tests. */
+export let coverageChecks = 0;
+
 /** The accent color as last seen, to notice when it changes. */
 let accentColor = '';
 
@@ -78,8 +92,13 @@ export function enableEffect() {
             // A new buffer can change whether a window is opaque, for
             // example when a game switches to its fullscreen buffer. Pausing
             // may come one frame later this way, which cannot be seen;
-            // resuming is triggered directly by the signals.
-            if (bits & (GEOMETRY | STATE)) queueCoverage();
+            // resuming is triggered directly by the signals. Without a
+            // window that covers its monitor, nothing can be paused.
+            if (
+                bits & (GEOMETRY | STATE) &&
+                (coverers.size > 0 || coversMonitor(state.win))
+            )
+                queueCoverage();
         },
     });
 
@@ -146,11 +165,13 @@ export function enableEffect() {
 
 /** Disable the effect for all windows. */
 export function disableEffect() {
+    for (const state of [...states.values()]) untrack(state);
+
+    // Untracking queues a check, so this comes after it.
     if (coverageLaterId) laters?.remove(coverageLaterId);
     coverageLaterId = 0;
     coveragePausedBy.clear();
-
-    for (const state of [...states.values()]) untrack(state);
+    coverers.clear();
 
     settings?.disconnectObject(owner);
     St.ThemeContext.get_for_stage(global.stage).disconnectObject(owner);
@@ -195,7 +216,7 @@ function track(actor) {
         'notify::size',
         () => {
             queueUpdate(state, GEOMETRY);
-            queueCoverage();
+            queueCoverageFor(state);
         },
         // XWayland surfaces can arrive after the window. Another extension
         // may already have put an actor in front, so the first child does
@@ -203,19 +224,19 @@ function track(actor) {
         'child-added',
         () => queueUpdate(state, STATE),
         'notify::visible',
-        () => queueCoverage(),
+        () => queueCoverageFor(state),
         // Windows fade, scale and move during animations, for example when
         // going fullscreen. Only a window at rest covers others.
         'notify::opacity',
-        () => queueCoverage(),
+        () => queueCoverageFor(state),
         'notify::scale-x',
-        () => queueCoverage(),
+        () => queueCoverageFor(state),
         'notify::scale-y',
-        () => queueCoverage(),
+        () => queueCoverageFor(state),
         'notify::translation-x',
-        () => queueCoverage(),
+        () => queueCoverageFor(state),
         'notify::translation-y',
-        () => queueCoverage(),
+        () => queueCoverageFor(state),
         state,
     );
     win.connectObject(
@@ -226,7 +247,11 @@ function track(actor) {
             queueCoverage();
         },
         'notify::minimized',
-        () => queueCoverage(),
+        () => queueCoverageFor(state),
+        // Moving does not restack, for example when an app moves its
+        // paused window to another monitor.
+        'position-changed',
+        () => queueCoverageFor(state),
         'notify::appears-focused',
         () => queueUpdate(state, FOCUS),
         'workspace-changed',
@@ -258,8 +283,19 @@ function queueCoverage() {
     });
 }
 
+/**
+ * Check coverage after a change of a window that only matters if the
+ * window covers its monitor or is paused itself.
+ *
+ * @param {import('./window_state.js').WindowState} state - The window.
+ */
+function queueCoverageFor(state) {
+    if (state.suspended || coverers.has(state)) queueCoverage();
+}
+
 /** Pause windows hidden behind an opaque fullscreen window, resume the rest. */
 function updateCoverage() {
+    coverageChecks++;
     const covered =
         coveragePausedBy.size > 0 ? new Set() : findCovered(describeStack());
 
@@ -272,11 +308,13 @@ function updateCoverage() {
 }
 
 /**
- * Describe the window stack for {@link findCovered}, top window first.
+ * Describe the window stack for {@link findCovered}, top window first, and
+ * remember the windows that cover their monitor in {@link coverers}.
  *
  * @returns {import('./coverage.js').StackEntry[]}
  */
 function describeStack() {
+    coverers.clear();
     const actors = global.get_window_actors();
     const stack = [];
     for (let i = actors.length - 1; i >= 0; i--) {
@@ -284,12 +322,14 @@ function describeStack() {
         const win = actor.metaWindow;
         if (!win) continue;
 
-        const covers = coversMonitor(win) && isOpaque(actor);
+        const key = states.get(actor) ?? actor;
+        const covers = coversMonitor(win);
+        if (covers) coverers.add(key);
         stack.push({
-            key: states.get(actor) ?? actor,
+            key,
             visible: actor.visible && !win.minimized,
             insideMonitor: monitorContaining(win),
-            coversMonitor: covers ? win.get_monitor() : null,
+            coversMonitor: covers && isOpaque(actor) ? win.get_monitor() : null,
         });
     }
     return stack;

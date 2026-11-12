@@ -15,7 +15,8 @@ GNOME Shell imports, so it can be unit tested.
 ## `event_manager.js`
 
 Connects GNOME Shell signals to the update queue, and pauses windows that
-are hidden behind an opaque fullscreen window.
+are hidden behind an opaque fullscreen window. Changes of a window only
+lead to a coverage check if it covers its monitor or is paused itself.
 
 ## `event_handlers.js`
 

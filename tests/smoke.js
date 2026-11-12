@@ -14,7 +14,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
 
 import {ok as check} from './harness.js';
-import {loadExtension, waitFor} from './session.js';
+import {afterNextPaint, loadExtension, waitFor} from './session.js';
 
 /** Window states of the loaded extension, set in run(). */
 let states;
@@ -45,8 +45,8 @@ async function screenshot(path) {
 }
 
 export async function run() {
-    let extension;
-    ({extension, states} = await loadExtension());
+    let extension, manager;
+    ({extension, states, manager} = await loadExtension());
 
     const othersBefore = otherActors();
     extension.enable();
@@ -132,14 +132,22 @@ export async function run() {
     // frame, however many signals a resize emits.
     let frames = 0;
     const paintId = global.stage.connect('after-paint', () => frames++);
+    // No window covers its monitor, so nothing can be paused, and the
+    // windows are not checked for it on every change.
     const countUpdates = async (what, action) => {
         const startFlushes = state.flushes;
         const startFrames = frames;
+        const startChecks = manager.coverageChecks;
         action();
         await Scripting.sleep(400);
         const flushes = state.flushes - startFlushes;
         const painted = frames - startFrames;
-        print(`RWC_SMOKE ${what}: ${flushes} updates in ${painted} frames`);
+        const checks = manager.coverageChecks - startChecks;
+        print(
+            `RWC_SMOKE ${what}: ${flushes} updates and ${checks} ` +
+                `coverage checks in ${painted} frames`,
+        );
+        check(checks <= 2, `${what}: ${checks} coverage checks`);
         check(flushes > 0, `${what}: no update`);
         check(
             flushes <= painted + 1,
@@ -154,6 +162,31 @@ export async function run() {
     await countUpdates('maximize', () => window.maximize());
     await countUpdates('unmaximize', () => window.unmaximize());
     global.stage.disconnect(paintId);
+
+    // Opening a window, with its animation, checks coverage at most twice:
+    // once for the new window and once for the restack.
+    const checksBeforeOpen = manager.coverageChecks;
+    const actorsBeforeOpen = global.get_window_actors();
+    await Scripting.createTestWindow({width: 300, height: 200});
+    await Scripting.waitTestWindows();
+    const opened = await waitFor(() =>
+        global
+            .get_window_actors()
+            .find(
+                a =>
+                    !actorsBeforeOpen.includes(a) &&
+                    states.get(a)?.effect &&
+                    a.opacity === 255 &&
+                    a.scaleX === 1,
+            ),
+    );
+    const openChecks = manager.coverageChecks - checksBeforeOpen;
+    print(`RWC_SMOKE open a window: ${openChecks} coverage checks`);
+    check(opened, 'The new window did not open');
+    check(openChecks <= 2, `Opening a window: ${openChecks} coverage checks`);
+    opened?.metaWindow.delete(global.get_current_time());
+    await waitFor(() => !states.has(opened));
+    Main.activateWindow(window);
 
     // A maximized window has no shadow and needs no room for it.
     window.maximize();
@@ -282,7 +315,15 @@ export async function run() {
         );
     }
 
+    // Nothing of the extension runs after disabling it.
+    const checksAtDisable = manager.coverageChecks;
+    const painted = afterNextPaint(() => {});
     extension.disable();
+    await painted;
+    check(
+        manager.coverageChecks === checksAtDisable,
+        'A coverage check ran after disabling',
+    );
     check(roundedActors().length === 0, 'Disable leaked window effects');
     check(states.size === 0, 'Disable leaked window states');
     check(otherActors() === othersBefore, 'Disable leaked actors');
