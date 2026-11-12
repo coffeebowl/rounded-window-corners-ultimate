@@ -59,7 +59,8 @@ export function flush(state, bits) {
 
     // Everything except a focus change can decide whether the window has
     // the effect: maximizing changes the size, fullscreen changes the
-    // rules, and so on.
+    // rules, and so on. A focus change only for windows whose effect only
+    // draws the focus border.
     if (bits & ~FOCUS) {
         // The surface actor of XWayland clients can arrive after the
         // window, and can be replaced; move the effect along. Its signal
@@ -69,21 +70,9 @@ export function flush(state, bits) {
         if (!target) return;
 
         if (state.app === null) startAppDetection(state);
-        const wanted = shouldEnableEffect(win, state.app);
-
-        // An offscreen effect cannot paint a window that has no buffer yet.
-        // The texture's size-changed signal queues the next update once the
-        // first buffer arrives.
-        const [, bufferWidth, bufferHeight] = state.texture.get_preferred_size();
-        const hasSize =
-            actor.width > 0 &&
-            actor.height > 0 &&
-            bufferWidth > 0 &&
-            bufferHeight > 0;
-
-        if (wanted && !state.effect && hasSize)
-            createEffect(state, target);
-        else if (!wanted && state.effect) removeEffect(state);
+        syncEffect(state, target);
+    } else if (isBorderOnly(state)) {
+        syncEffect(state, null);
     }
 
     if (bits & MINIMIZE) syncMinimized(state);
@@ -110,7 +99,7 @@ export function teardown(state) {
 
 /**
  * Apply a change of {@link WindowState.suspended}: a window hidden behind an
- * opaque fullscreen window pauses its effect, so Mutter culls it again and
+ * opaque fullscreen window loses its effect, so Mutter culls it again and
  * skips its offscreen copy and shadow.
  *
  * Runs before the frame is painted, so a window that becomes visible again
@@ -120,15 +109,58 @@ export function teardown(state) {
  */
 export function applySuspended(state) {
     logDebug(() => `${state.suspended ? 'Pausing' : 'Resuming'} ${state.win.wmClass}`);
-    syncEffectEnabled(state);
+    syncEffect(state, null);
+    if (state.effect) updateEffect(state);
 }
 
 /**
- * Turn corners and shadow off while the window is paused or in a magic
- * lamp animation. A disabled effect is not painted, and Mutter culls the
- * window again (see meta-cullable.c), which needs both effects disabled.
- * Clutter keeps its offscreen texture until it is removed, though, and
- * makes a new one when it is enabled again.
+ * Add or remove the effect as the window needs it now.
+ *
+ * The effect only exists while it paints. A disabled effect would not be
+ * painted either, but Clutter keeps its offscreen texture until the effect
+ * is removed (clutter_offscreen_effect_set_enabled in Clutter 51), and
+ * makes a new one when it is enabled again. So paused windows, and windows
+ * whose effect only draws the focus border while they have no focus, have
+ * no effect at all.
+ *
+ * @param {WindowState} state - The window.
+ * @param {import('gi://Clutter').default.Actor | null} target - The actor
+ *   for the effect, if already known.
+ */
+function syncEffect(state, target) {
+    const {actor, win} = state;
+    const wanted =
+        shouldEnableEffect(win, state.app) &&
+        !state.suspended &&
+        (!isBorderOnly(state) || win.appears_focused);
+    if (!wanted) {
+        if (state.effect) removeEffect(state);
+        return;
+    }
+    if (state.effect) return;
+
+    // An offscreen effect cannot paint a window that has no buffer yet.
+    // The texture's size-changed signal queues the next update once the
+    // first buffer arrives. A window can also be resumed before its first
+    // update found a texture.
+    if (!state.texture) return;
+    const [, bufferWidth, bufferHeight] = state.texture.get_preferred_size();
+    if (
+        actor.width <= 0 ||
+        actor.height <= 0 ||
+        bufferWidth <= 0 ||
+        bufferHeight <= 0
+    )
+        return;
+
+    target ??= unwrapActor(actor);
+    if (target) createEffect(state, target);
+}
+
+/**
+ * Turn corners and shadow off during a magic lamp animation, which only
+ * lasts a moment. Mutter then culls the window again (see meta-cullable.c),
+ * which needs both effects disabled.
  *
  * @param {WindowState} state - The window.
  */
@@ -136,13 +168,9 @@ function syncEffectEnabled(state) {
     const {effect, room} = state;
     if (!effect) return;
 
-    const borderOnly = isBorderOnly(state);
-    const enabled =
-        !state.suspended &&
-        !state.lampHidden &&
-        (!borderOnly || state.win.appears_focused);
+    const enabled = !state.lampHidden;
     // Only windows with a shadow need room for it.
-    room.enabled = enabled && !borderOnly;
+    room.enabled = enabled && !isBorderOnly(state);
     if (effect.enabled === enabled) return;
     effect.enabled = enabled;
     // Without the effect, Mutter paints a window scaled below half size
@@ -151,8 +179,8 @@ function syncEffectEnabled(state) {
 }
 
 /**
- * Check whether the effect of a window only draws the focus border, so it
- * is only on while the window has the focus: libadwaita apps round
+ * Check whether the effect of a window only draws the focus border, so the
+ * window only has it while it has the focus: libadwaita apps round
  * themselves and draw their own line and shadow, maximized and tiled
  * windows stay square and have neither.
  *
@@ -403,8 +431,8 @@ function removeEffect(state) {
 function updateEffect(state) {
     const {win, effect} = state;
 
-    // A paused window keeps its uniforms up to date, so it looks right as
-    // soon as it is visible again.
+    // A window that is maximized with the focus border keeps its effect,
+    // but no longer needs room for a shadow.
     syncEffectEnabled(state);
 
     // libadwaita's own shadow lies outside the window and has to stay.

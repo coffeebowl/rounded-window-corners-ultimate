@@ -82,16 +82,21 @@ export async function run() {
 
     const allPaused = () => windows.every(s => s.suspended);
     const allActive = () =>
-        windows.every(s => !s.suspended && s.effect.enabled && s.room.enabled);
+        windows.every(s => !s.suspended && s.effect?.enabled && s.room?.enabled);
 
     // An opaque fullscreen window pauses the windows below it.
     bringToFront(gears.win);
     gears.win.make_fullscreen();
     await Scripting.sleep(1000);
     check(allPaused(), 'windows below fullscreen glxgears are paused');
+    // A disabled effect would keep its offscreen texture.
     check(
-        windows.every(s => !s.effect.enabled && !s.room.enabled),
-        'paused windows have no active effects',
+        windows.every(
+            s =>
+                !s.effect &&
+                s.actor.get_children().every(c => c.get_effects().length === 0),
+        ),
+        'paused windows have no effects',
     );
     await screenshot('1-fullscreen');
 
@@ -163,8 +168,8 @@ export async function run() {
         const moved = afterNextPaint(
             () =>
                 !windows[1].suspended &&
-                windows[1].effect.enabled &&
-                windows[1].room.enabled,
+                windows[1].effect?.enabled &&
+                windows[1].room?.enabled,
         );
         windows[1].win.move_frame(false, other.x + 100, other.y + 100);
         check(await moved, 'first frame after moving to the other monitor is active');

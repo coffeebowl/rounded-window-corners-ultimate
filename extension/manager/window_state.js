@@ -44,7 +44,7 @@ export const MINIMIZE = 8;
  * @property {number} pid - Process ID used for the app detection, or 0.
  * @property {number} unminimizeTimeoutId - Pending Chromium refresh.
  * @property {boolean} suspended - Hidden behind an opaque window that
- *   covers the monitor, so the effect is paused.
+ *   covers the monitor, so the window has no effect.
  * @property {boolean} lampHidden - The magic lamp animation pauses the
  *   effect.
  * @property {import('gi://Clutter').default.Timeline | null} lampTimer -

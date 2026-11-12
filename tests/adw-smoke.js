@@ -91,7 +91,7 @@ export async function run() {
 
     Main.activateWindow(other);
     await Scripting.sleep(600);
-    check(!state().effect.enabled, 'The effect is off while the app has no focus');
+    check(!state().effect, 'No effect while the app has no focus');
     image = await screenshot();
     check(!isRed(pixelAt(image, frame.x, midY)), 'No focus border without focus');
 
