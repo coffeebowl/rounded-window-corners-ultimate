@@ -95,7 +95,7 @@ export async function readShader(module, path) {
 
 /**
  * Delete the shadow images that versions up to 51.0 kept in the cache
- * directory. Shadows are textures in memory now.
+ * directory. The shader draws the shadow now.
  */
 export function removeOldShadowFiles() {
     const directory = GLib.build_filenamev([

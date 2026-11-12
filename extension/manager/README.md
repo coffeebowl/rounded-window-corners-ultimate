@@ -28,6 +28,12 @@ room for its shadow, and updates them.
 Decides which windows are hidden behind an opaque window that covers their
 monitor. Has no GNOME Shell imports, so it can be unit tested.
 
+## `app_detection.js`
+
+Finds out whether an app uses libadwaita or Chromium, by the libraries its
+process has mapped. Windows of one process share the result. Has no GNOME
+Shell imports, so it can be unit tested.
+
 ## `utils.js`
 
 Provides various utility functions used within signal handling code.

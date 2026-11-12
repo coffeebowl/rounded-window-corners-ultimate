@@ -1,15 +1,11 @@
 /** @file Provides various utility functions used within signal handling code. */
 
 import Cogl from 'gi://Cogl';
-import Gio from 'gi://Gio';
-import GLib from 'gi://GLib';
 import GObject from 'gi://GObject';
 import Meta from 'gi://Meta';
 import St from 'gi://St';
 
 import {BORDER} from '../utils/config.js';
-import {findInFile} from '../utils/file.js';
-import {logDebug, logError} from '../utils/log.js';
 import {focusBorderWidth} from '../utils/settings.js';
 
 /**
@@ -172,18 +168,12 @@ export function isOpaque(actor) {
 }
 
 /**
- * @typedef {object} AppInfo
- * @property {boolean} libadwaita - Whether the app uses libadwaita, which
- *   draws corners, line and shadow itself.
- * @property {boolean} chromium - Whether the app is Chromium or Electron.
- */
-
-/**
  * Check whether a window should have rounded corners.
  *
  * @param {import('gi://Meta').default.Window} win - The window to check.
- * @param {AppInfo | null} app - What the app is built with, or null if that
- *   is not known yet. Windows are left alone until it is known.
+ * @param {import('./app_detection.js').AppInfo | null} app - What the app
+ *   is built with, or null if that is not known yet. Windows are left
+ *   alone until it is known.
  * @returns {boolean} Whether the window should have rounded corners.
  */
 export function shouldEnableEffect(win, app) {
@@ -229,86 +219,4 @@ export function shouldEnableEffect(win, app) {
  */
 export function isMaximized(win) {
     return win.maximizedHorizontally || win.maximizedVertically;
-}
-
-/** Markers in /proc/<pid>/maps and what they mean. */
-const MAPS_MARKERS = new Map([
-    ['libadwaita-1.so', Object.freeze({libadwaita: true, chromium: false})],
-    [
-        '/dev/shm/.org.chromium.Chromium',
-        Object.freeze({libadwaita: false, chromium: true}),
-    ],
-]);
-
-/** @type {AppInfo} */
-export const OTHER_APP = Object.freeze({libadwaita: false, chromium: false});
-
-/**
- * Detection results per process, shared by all windows of the process.
- *
- * @type {Map<number, {promise: Promise<AppInfo>, users: number}>}
- */
-const appsByPid = new Map();
-
-/**
- * Find out what an app is built with. Windows of the same process share one
- * read of /proc/<pid>/maps, which stops at the first marker. Call
- * {@link releaseApp} with the same PID when the window goes away.
- *
- * Errors for processes that cannot be read (other users, sandboxes) or that
- * already exited are expected and only logged in debug mode.
- *
- * @param {import('gi://Meta').default.Window} win - The window to check.
- * @param {number} pid - Its process ID, greater than 0.
- * @returns {Promise<AppInfo>}
- */
-export function detectApp(win, pid) {
-    let entry = appsByPid.get(pid);
-    if (!entry) {
-        entry = {promise: readAppInfo(win, pid), users: 0};
-        appsByPid.set(pid, entry);
-    }
-    entry.users++;
-    return entry.promise;
-}
-
-/**
- * Drop a window's claim on the detection result of its process. The result
- * is forgotten when the last window of the process is gone, since the PID
- * can be reused.
- *
- * @param {number} pid - The PID passed to {@link detectApp}.
- */
-export function releaseApp(pid) {
-    const entry = appsByPid.get(pid);
-    if (entry && --entry.users <= 0) appsByPid.delete(pid);
-}
-
-/**
- * Read /proc/<pid>/maps once and look for the toolkit markers.
- *
- * @param {import('gi://Meta').default.Window} win - A window of the process, for logging.
- * @param {number} pid - The process ID.
- * @returns {Promise<AppInfo>}
- */
-async function readAppInfo(win, pid) {
-    let marker;
-    try {
-        marker = await findInFile(`/proc/${pid}/maps`, [...MAPS_MARKERS.keys()]);
-    } catch (e) {
-        if (
-            e instanceof GLib.Error &&
-            (e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.PERMISSION_DENIED) ||
-                e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.NOT_FOUND))
-        ) {
-            logDebug(() => `Cannot read /proc maps for ${win.wmClass}`);
-        } else {
-            logError(e);
-        }
-        return OTHER_APP;
-    }
-
-    const app = (marker && MAPS_MARKERS.get(marker)) || OTHER_APP;
-    logDebug(() => `${win.wmClass}: libadwaita: ${app.libadwaita}, chromium: ${app.chromium}`);
-    return app;
 }

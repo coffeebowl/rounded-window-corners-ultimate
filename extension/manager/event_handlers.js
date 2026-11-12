@@ -20,13 +20,11 @@ import {
     SHADOW_ROOM_EFFECT,
 } from '../utils/constants.js';
 import {logDebug} from '../utils/log.js';
+import {detectApp, OTHER_APP, releaseApp} from './app_detection.js';
 import {
     computeBounds,
-    detectApp,
     getBorder,
     isMaximized,
-    OTHER_APP,
-    releaseApp,
     shouldEnableEffect,
     unwrapActor,
 } from './utils.js';
@@ -57,22 +55,21 @@ export function flush(state, bits) {
     // effect: a new buffer can make a window opaque, which matters for
     // pausing the windows below it.
     syncTexture(state);
-
-    // The surface actor of XWayland clients can arrive after the window.
-    // Its signal queues another update.
-    const target = unwrapActor(actor);
-    if (!target || !state.texture) return;
-
-    if (state.app === null) startAppDetection(state);
+    if (!state.texture) return;
 
     // Everything except a focus change can decide whether the window has
     // the effect: maximizing changes the size, fullscreen changes the
     // rules, and so on.
     if (bits & ~FOCUS) {
-        const wanted = shouldEnableEffect(win, state.app);
-
-        // The X11 surface actor can be replaced; move the effect along.
+        // The surface actor of XWayland clients can arrive after the
+        // window, and can be replaced; move the effect along. Its signal
+        // queues another update.
+        const target = unwrapActor(actor);
         if (state.effect && state.effectActor !== target) removeEffect(state);
+        if (!target) return;
+
+        if (state.app === null) startAppDetection(state);
+        const wanted = shouldEnableEffect(win, state.app);
 
         // An offscreen effect cannot paint a window that has no buffer yet.
         // The texture's size-changed signal queues the next update once the
@@ -128,8 +125,10 @@ export function applySuspended(state) {
 
 /**
  * Turn corners and shadow off while the window is paused or in a magic
- * lamp animation. A disabled effect costs nothing, and Mutter culls the
+ * lamp animation. A disabled effect is not painted, and Mutter culls the
  * window again (see meta-cullable.c), which needs both effects disabled.
+ * Clutter keeps its offscreen texture until it is removed, though, and
+ * makes a new one when it is enabled again.
  *
  * @param {WindowState} state - The window.
  */
@@ -331,7 +330,7 @@ function startAppDetection(state, then) {
             state.pid = pid;
             state.detection = whenAlive(
                 state,
-                detectApp(state.win, pid),
+                detectApp(pid, state.win.wmClass),
                 app => {
                     state.app = app;
                     state.detection = null;
